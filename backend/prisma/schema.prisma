@@ -1,0 +1,136 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
+}
+
+model Staff {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique
+  passwordHash String
+  name         String
+  role         String    @default("staff") // owner, staff
+  sessions     Session[]
+}
+
+model Table {
+  id       Int            @id @default(autoincrement())
+  number   Int
+  gameType String         @default("Pool") // Pool, MidSnooker
+  status   String         @default("available") // available, occupied
+  sessions Session[]
+  bookings TableBooking[]
+  tablePlays TablePlay[]
+
+  @@unique([gameType, number])
+}
+
+model MenuItem {
+  id       Int     @id @default(autoincrement())
+  name     String
+  price    Float
+  category String  // Cafe, Cold Drinks, Cigarettes
+  orders   Order[]
+}
+
+model Session {
+  id            String    @id // DDMMYYYYHHMMSS_customername
+  tableId       Int?      // null for PS4 or Cafe-only sessions
+  table         Table?    @relation(fields: [tableId], references: [id])
+  customerName  String    @default("Guest")
+  customerPhone String?
+  gameType      String    @default("None") // Pool, MidSnooker, PS4, None
+  playerCount   Int       @default(1)      // used only for PS4 (per person billing)
+  startTime     DateTime  @default(now())
+  endTime       DateTime?
+  status        String    @default("active") // active, completed
+  staffUsername String
+  staff         Staff     @relation(fields: [staffUsername], references: [username])
+  totalBill     Float     @default(0)
+  gameCost      Float     @default(0)
+  menuCost      Float     @default(0)
+  customAmount  Float     @default(0) // positive = extra charge, negative = discount
+  paymentStatus String    @default("pending") // pending, paid, partially_paid, udhar
+  orders        Order[]
+  payments      Payment[]
+  udhars        Udhar[]
+  tablePlays    TablePlay[]
+
+  @@index([tableId])
+  @@index([staffUsername])
+  @@index([status])
+  @@index([customerPhone])
+}
+
+model Order {
+  id         Int      @id @default(autoincrement())
+  sessionId  String
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  menuItemId Int
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  quantity   Int
+  price      Float    // price at ordering time
+  createdAt  DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([menuItemId])
+}
+
+model Payment {
+  id        Int      @id @default(autoincrement())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  amount    Float
+  method    String   // Cash, UPI
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+}
+
+model Udhar {
+  id           Int      @id @default(autoincrement())
+  customerName String
+  amount       Float
+  sessionId    String?
+  session      Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  status       String   @default("unpaid") // unpaid, paid
+  createdAt    DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([customerName])
+  @@index([status])
+}
+
+model TableBooking {
+  id            Int      @id @default(autoincrement())
+  tableId       Int
+  table         Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  customerName  String
+  contactNumber String?
+  bookingTime   DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([tableId])
+}
+
+model TablePlay {
+  id          Int       @id @default(autoincrement())
+  sessionId   String
+  session     Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tableId     Int?      // null for PS4
+  table       Table?    @relation(fields: [tableId], references: [id])
+  gameType    String    // Pool, MidSnooker, PS4
+  playerCount Int       @default(1)
+  startTime   DateTime  @default(now())
+  endTime     DateTime?
+  cost        Float     @default(0)
+  createdBy   String    // staff username
+
+  @@index([sessionId])
+  @@index([tableId])
+}
