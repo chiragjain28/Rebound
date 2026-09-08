@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: rebound-backend
+    runtime: node
+    rootDir: backend
+    region: singapore
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        sync: false   # You will paste this manually in the Render dashboard
+      - key: DIRECT_URL
+        sync: false   # You will paste this manually in the Render dashboard
+      - key: JWT_SECRET
+        sync: false   # You will paste this manually in the Render dashboard
+      - key: FRONTEND_URL
+        sync: false   # Paste your Vercel URL here after frontend is deployed
