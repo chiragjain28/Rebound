@@ -27,23 +27,21 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
 
   const CUSTOMER_CACHE_KEY = 'rebound_customer_names_cache';
-  const CUSTOMER_CACHE_TTL = 30 * 60 * 1000; // 30 minutes in milliseconds
+  const CUSTOMER_CACHE_TTL = 30 * 60 * 1000;
 
   useEffect(() => {
     const fetchCustomers = async () => {
-      // 1. Check localStorage cache first
       try {
         const cached = localStorage.getItem(CUSTOMER_CACHE_KEY);
         if (cached) {
           const { names, timestamp } = JSON.parse(cached);
           if (Date.now() - timestamp < CUSTOMER_CACHE_TTL && Array.isArray(names)) {
             setCustomerList(names);
-            return; // Cache is fresh — no DB hit needed
+            return;
           }
         }
       } catch (e) { /* ignore corrupt cache */ }
 
-      // 2. Cache is stale or missing — fetch from API
       try {
         const names = await api.get('/sessions/customers/all');
         if (Array.isArray(names)) {
@@ -78,14 +76,15 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
       return;
     }
 
-    setError('');
     setLoading(true);
+    setError('');
+
     try {
       const data = await api.post('/bookings', {
         tableId: parseInt(tableId),
-        customerName,
-        contactNumber: contactNumber || null,
-        bookingTime
+        customerName: customerName.trim(),
+        contactNumber: contactNumber.trim() || undefined,
+        bookingTime: new Date(bookingTime).toISOString(),
       });
       onSuccess(data);
     } catch (err: any) {
@@ -96,25 +95,30 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-md shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden p-6 space-y-6">
-        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-          <h2 className="text-lg font-extrabold text-white font-display uppercase tracking-wide">Book Billiard Table</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-md shadow-2xl overflow-hidden p-6 space-y-5">
+        
+        {/* Header */}
+        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 font-display">Advance Table Booking</h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Reserve table for upcoming guest</p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {error && (
-          <div className="bg-rose-950/60 text-rose-300 text-xs font-bold p-3 rounded-xl border border-rose-500/40">
+          <div className="bg-rose-50 text-rose-700 text-xs font-semibold p-3 rounded-xl border border-rose-200">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
-              Select Game Type
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Game Category
             </label>
             <select
               value={gameType}
@@ -122,7 +126,7 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
                 setGameType(e.target.value);
                 setTableId('');
               }}
-              className="block w-full rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2.5 text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold"
+              className="block w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-semibold"
             >
               <option value="Pool">Pool</option>
               <option value="MidSnooker">MidSnooker</option>
@@ -130,13 +134,13 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+            <label className="block text-xs font-bold text-slate-700 mb-1">
               Select Table
             </label>
             <select
               value={tableId}
               onChange={(e) => setTableId(e.target.value)}
-              className="block w-full rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2.5 text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold"
+              className="block w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-semibold"
             >
               <option value="">-- Choose a table --</option>
               {tables.filter(t => t.gameType === gameType).map((t) => (
@@ -148,9 +152,9 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
           </div>
 
           <div className="relative">
-            <label className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+            <label className="flex justify-between items-center text-xs font-bold text-slate-700 mb-1">
               <span>Customer Name</span>
-              {isNew && <span className="text-[9px] font-extrabold text-emerald-300 uppercase tracking-widest bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-500/40 font-mono">New Customer</span>}
+              {isNew && <span className="text-[10px] font-bold text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-mono">New Customer</span>}
             </label>
             <input
               type="text"
@@ -162,16 +166,15 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
               }}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-              className="block w-full rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2.5 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold"
-              placeholder="e.g. John Doe"
+              className="block w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-semibold"
+              placeholder="e.g. Tony Stark"
             />
-            {/* Suggestions Dropdown */}
             {showSuggestions && matchedSuggestions.length > 0 && (
-              <ul className="absolute z-20 mt-1 w-full bg-slate-900 border border-slate-800 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+              <ul className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100">
                 {matchedSuggestions.map(name => (
                   <li 
                     key={name}
-                    className="px-4 py-2.5 text-xs text-slate-200 hover:bg-slate-800 hover:text-cyan-300 cursor-pointer font-semibold border-b border-slate-800/60 last:border-0"
+                    className="px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 cursor-pointer font-medium"
                     onMouseDown={(e) => {
                       e.preventDefault();
                       setCustomerName(name);
@@ -186,20 +189,21 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+            <label className="block text-xs font-bold text-slate-700 mb-1">
               Contact Number
             </label>
             <input
               type="tel"
               value={contactNumber}
               onChange={(e) => setContactNumber(e.target.value)}
-              className="block w-full rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2.5 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-mono font-semibold"
+              placeholder="e.g. 9876543210"
+              className="block w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-mono font-semibold"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
-              Booking Time
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              Booking Date & Time
             </label>
             <input
               type="datetime-local"
@@ -207,25 +211,25 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
               min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
               value={bookingTime}
               onChange={(e) => setBookingTime(e.target.value)}
-              className="block w-full rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2.5 text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-mono font-semibold"
+              className="block w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-mono font-semibold"
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-2 border-t border-slate-800/80">
+          <div className="flex justify-end gap-2.5 pt-2 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex justify-center items-center px-4 py-2.5 border border-slate-800 text-xs font-bold uppercase tracking-wider rounded-xl text-slate-300 bg-slate-900 hover:bg-slate-800 transition-all custom-button"
+              className="inline-flex justify-center items-center px-4 py-2 border border-slate-200 text-xs font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-all"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex justify-center items-center px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-xs font-extrabold uppercase tracking-wider rounded-xl text-white shadow-[0_0_15px_rgba(168,85,247,0.3)] disabled:opacity-50 transition-all custom-button"
+              className="inline-flex justify-center items-center px-5 py-2 bg-slate-900 hover:bg-slate-800 text-slate-50 text-xs font-bold rounded-xl shadow-sm disabled:opacity-50 transition-all"
             >
               {loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></div>
               ) : (
                 <>
                   <Calendar className="h-4 w-4 mr-1.5" />
@@ -239,4 +243,3 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
     </div>
   );
 };
-

@@ -24,7 +24,6 @@ export default function CompletedSessionsPage() {
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  // Pagination and Search states
   const [sessions, setSessions] = useState<Session[]>([]);
   const [totalSessions, setTotalSessions] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -35,23 +34,19 @@ export default function CompletedSessionsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !token) {
       router.push('/login');
     }
   }, [token, authLoading, router]);
 
-  // Search input debouncer (400ms delay)
   useEffect(() => {
     const handler = setTimeout(() => {
       setSearchQuery(searchTerm);
-      setCurrentPage(1); // Reset to page 1 on new search
-    }, 400);
+      setCurrentPage(1);
+    }, 350);
 
-    return () => {
-      clearTimeout(handler);
-    };
+    return () => clearTimeout(handler);
   }, [searchTerm]);
 
   const fetchSessions = async () => {
@@ -59,9 +54,11 @@ export default function CompletedSessionsPage() {
     try {
       setLoading(true);
       setError('');
-      const res = await api.get(
-        `/sessions/completed?page=${currentPage}&limit=15&search=${encodeURIComponent(searchQuery)}&date=${dateFilter}`
-      );
+      let endpoint = `/sessions/completed?page=${currentPage}&limit=15`;
+      if (searchQuery) endpoint += `&search=${encodeURIComponent(searchQuery)}`;
+      if (dateFilter) endpoint += `&date=${encodeURIComponent(dateFilter)}`;
+
+      const res = await api.get(endpoint);
       setSessions(res.sessions || []);
       setTotalSessions(res.total || 0);
       setTotalPages(res.totalPages || 1);
@@ -79,6 +76,8 @@ export default function CompletedSessionsPage() {
 
   const handleClearSearch = () => {
     setSearchTerm('');
+    setSearchQuery('');
+    setCurrentPage(1);
   };
 
   const getPageNumbers = () => {
@@ -105,67 +104,66 @@ export default function CompletedSessionsPage() {
   };
 
   const formatDate = (dateStr: string | Date) => {
-    return new Date(dateStr).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+    return new Date(dateStr).toLocaleDateString([], { day: '2-digit', month: 'short' });
   };
 
   if (authLoading || !token) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5f7fa]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1a1a2e]"></div>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-slate-700"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0d14] text-slate-100 pb-16 font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 font-sans">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
         
         {/* Navigation & Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <button
-              onClick={() => router.push('/')}
-              className="inline-flex items-center text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-cyan-400 transition-colors mb-2"
+              onClick={() => router.push('/dashboard')}
+              className="inline-flex items-center text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors mb-2 gap-1"
             >
-              <ArrowLeft className="h-4 w-4 mr-1 text-cyan-400" />
-              Back to Dashboard
+              <ArrowLeft className="h-4 w-4" />
+              Back to Floor Plan
             </button>
-            <h1 className="text-2xl font-extrabold text-white tracking-tight font-display">Completed Sessions History</h1>
-            <p className="text-xs text-slate-400 mt-1 font-medium">
-              View, search, and navigate through closed gaming and billing sessions.
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight font-display">Completed Sessions & Audit Archive</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Review and audit all finalized customer sessions, receipts, and table histories.
             </p>
           </div>
           
-          {/* Real-time Refresh Action */}
           <button
             onClick={fetchSessions}
-            className="inline-flex items-center justify-center px-4 py-2 border border-slate-700 text-xs font-bold uppercase tracking-wider rounded-xl text-slate-300 bg-slate-900 hover:bg-slate-800 hover:text-cyan-300 transition-all shadow-sm w-fit self-end sm:self-center"
+            className="inline-flex items-center justify-center px-4 py-2 border border-slate-200 text-xs font-bold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-xs w-fit"
             title="Refresh list"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 text-cyan-400 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
 
         {/* Filter / Search Bar */}
-        <div className="bg-[#111827]/80 backdrop-blur-xl p-4 rounded-2xl border border-slate-800 shadow-xl flex flex-col md:flex-row items-center gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center gap-3">
           <div className="relative w-full flex-1">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-cyan-400" />
+              <Search className="h-4 w-4 text-slate-400" />
             </div>
             <input
               type="text"
-              placeholder="Search by customer name (e.g. Chirag)..."
+              placeholder="Search by customer name or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-10 py-2.5 border border-slate-800 rounded-xl text-white bg-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs font-semibold placeholder-slate-500 transition-all duration-200"
+              className="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-xl text-slate-900 bg-slate-50 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-semibold placeholder-slate-400"
             />
             {searchTerm && (
               <button
                 onClick={handleClearSearch}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -181,7 +179,7 @@ export default function CompletedSessionsPage() {
                 setDateFilter(e.target.value);
                 setCurrentPage(1);
               }}
-              className="block w-full px-3.5 py-2.5 border border-slate-800 rounded-xl text-white bg-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs font-semibold font-mono"
+              className="block w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-900 bg-slate-50 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-mono font-semibold"
             />
             {dateFilter && (
               <button
@@ -189,7 +187,7 @@ export default function CompletedSessionsPage() {
                   setDateFilter('');
                   setCurrentPage(1);
                 }}
-                className="absolute right-7 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
                 title="Clear date"
               >
                 <X className="h-4 w-4" />
@@ -197,31 +195,31 @@ export default function CompletedSessionsPage() {
             )}
           </div>
 
-          <div className="shrink-0 text-xs font-mono font-bold text-slate-400">
+          <div className="shrink-0 text-xs font-mono font-bold text-slate-500">
             {searchQuery || dateFilter ? `Found ${totalSessions} matches` : `Total ${totalSessions} closed sessions`}
           </div>
         </div>
 
         {/* Sessions Grid */}
         {error && (
-          <div className="bg-rose-950/60 text-rose-300 text-xs font-bold p-4 rounded-2xl border border-rose-500/40">
+          <div className="bg-rose-50 text-rose-700 text-xs font-semibold p-4 rounded-2xl border border-rose-200">
             {error}
           </div>
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-32 bg-[#111827]/80 backdrop-blur-xl rounded-2xl border border-slate-800">
+          <div className="flex items-center justify-center py-32 bg-white rounded-2xl border border-slate-200">
             <div className="flex flex-col items-center gap-2">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-cyan-400"></div>
-              <p className="text-xs text-slate-400 font-bold font-mono">Loading records...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-slate-600"></div>
+              <p className="text-xs text-slate-500 font-bold">Loading records...</p>
             </div>
           </div>
         ) : sessions.length === 0 ? (
-          <div className="text-center py-24 bg-[#111827]/80 backdrop-blur-xl rounded-2xl border border-slate-800 text-slate-400 font-semibold text-sm">
+          <div className="text-center py-24 bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
             No completed sessions found {(searchQuery || dateFilter) && 'matching your search criteria'}.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {sessions.map((session) => {
               const hasCafe = session.orders?.some(
                 (o) => o.menuItem?.category === 'Cafe' || o.menuItem?.category === 'Cold Drinks'
@@ -234,16 +232,16 @@ export default function CompletedSessionsPage() {
               return (
                 <div
                   key={session.id}
-                  className="group bg-[#111827]/90 border border-slate-800 p-5 rounded-2xl hover:border-cyan-500/50 hover:shadow-[0_0_20px_rgba(0,242,254,0.15)] transition-all duration-300 flex flex-col justify-between h-[170px]"
+                  className="bg-white border border-slate-200 p-5 rounded-2xl hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between h-[165px]"
                 >
                   <div>
                     <div className="flex justify-between items-start gap-4">
-                      <div className="min-w-0">
-                        <span className="block font-extrabold text-white text-base tracking-tight truncate font-display">
+                      <div className="min-w-0 pr-1">
+                        <span className="block font-bold text-slate-900 text-base tracking-tight truncate font-display">
                           {session.customerName}
                         </span>
-                        <p className="text-[10px] text-slate-400 font-mono mt-1 flex items-center gap-1">
-                          <Calendar className="h-3 w-3 text-slate-500" />
+                        <p className="text-[10px] text-slate-500 font-mono mt-0.5 flex items-center gap-1">
+                          <Calendar className="h-3 w-3 text-slate-400" />
                           <span className="truncate">
                             {session.startTime && session.endTime ? (
                               `${formatTime(session.startTime)} - ${formatTime(session.endTime)} · ${formatDate(session.endTime)}`
@@ -253,42 +251,42 @@ export default function CompletedSessionsPage() {
                           </span>
                         </p>
                       </div>
-                      <span className="inline-flex items-center text-xs font-mono font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2.5 py-1 rounded-xl shrink-0">
-                        ₹{(session.totalBill || 0).toFixed(2)}
+                      <span className="inline-flex items-center text-xs font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg shrink-0">
+                        ₹{(session.totalBill || 0).toFixed(0)}
                       </span>
                     </div>
 
-                    {/* Cyber minimalist tags */}
-                    <div className="flex flex-wrap gap-1.5 mt-3">
+                    {/* Minimalist badges */}
+                    <div className="flex flex-wrap gap-1.5 mt-2.5">
                       {hasTable && (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-500/40">
-                          <Gamepad2 className="h-2.5 w-2.5 text-cyan-400" />
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-2 py-0.2 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                          <Gamepad2 className="h-2.5 w-2.5 text-slate-500" />
                           Table
                         </span>
                       )}
                       {hasCafe && (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-500/40">
-                          <Coffee className="h-2.5 w-2.5 text-amber-400" />
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-2 py-0.2 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                          <Coffee className="h-2.5 w-2.5 text-amber-600" />
                           Café
                         </span>
                       )}
                       {hasCigarette && (
-                        <span className="inline-flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-950/80 text-rose-300 border border-rose-500/40">
-                          <Cigarette className="h-2.5 w-2.5 text-rose-400" />
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-2 py-0.2 rounded-full bg-rose-50 text-rose-800 border border-rose-200">
+                          <Cigarette className="h-2.5 w-2.5 text-rose-600" />
                           Smoke
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center pt-3 border-t border-slate-800 mt-2">
-                    <span className="text-[10px] text-slate-500 font-mono truncate">
+                  <div className="flex justify-between items-center pt-2.5 border-t border-slate-100 mt-2">
+                    <span className="text-[10px] text-slate-400 font-mono truncate">
                       Staff: {session.staffUsername}
                     </span>
                     <button
                       onClick={() => router.push(`/sessions/${session.id}`)}
                       title="View Details"
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-300 bg-slate-900 border border-slate-700 rounded-xl hover:bg-cyan-500 hover:text-black hover:border-cyan-400 transition-all duration-300 shadow-sm"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all shadow-2xs"
                     >
                       <Eye className="h-3.5 w-3.5" />
                       View Session
@@ -302,18 +300,16 @@ export default function CompletedSessionsPage() {
 
         {/* Pagination Controls */}
         {!loading && totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#111827]/80 backdrop-blur-xl p-4 rounded-2xl border border-slate-800 shadow-xl mt-8">
-            <span className="text-xs text-slate-400 font-mono">
-              Showing <span className="font-extrabold text-white">{Math.min((currentPage - 1) * 15 + 1, totalSessions)}</span> to{' '}
-              <span className="font-extrabold text-white">{Math.min(currentPage * 15, totalSessions)}</span> of{' '}
-              <span className="font-extrabold text-white">{totalSessions}</span> completed sessions
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs mt-6">
+            <span className="text-xs text-slate-500 font-mono">
+              Showing {Math.min((currentPage - 1) * 15 + 1, totalSessions)} to {Math.min(currentPage * 15, totalSessions)} of {totalSessions} sessions
             </span>
 
-            <div className="inline-flex items-center -space-x-px rounded-xl shadow-sm">
+            <div className="inline-flex items-center -space-x-px rounded-xl shadow-2xs">
               <button
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="inline-flex items-center px-3 py-2 rounded-l-xl border border-slate-800 bg-slate-900 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                className="inline-flex items-center px-3 py-2 rounded-l-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               >
                 <ChevronLeft className="h-4 w-4" />
                 <span className="ml-1">Prev</span>
@@ -324,12 +320,12 @@ export default function CompletedSessionsPage() {
                   key={idx}
                   onClick={() => typeof pageNum === 'number' && setCurrentPage(pageNum)}
                   disabled={pageNum === '...'}
-                  className={`inline-flex items-center px-3.5 py-2 border text-xs font-extrabold font-mono transition-all duration-300 ${
+                  className={`inline-flex items-center px-3.5 py-2 border text-xs font-bold font-mono transition-all ${
                     pageNum === currentPage
-                      ? 'z-10 bg-cyan-500 border-cyan-400 text-black shadow-[0_0_15px_rgba(0,242,254,0.4)]'
+                      ? 'bg-slate-900 border-slate-900 text-white shadow-2xs'
                       : pageNum === '...'
-                      ? 'border-slate-800 bg-slate-900 text-slate-500 cursor-default'
-                      : 'border-slate-800 bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-white'
+                      ? 'border-slate-200 bg-white text-slate-400 cursor-default'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   {pageNum}
@@ -339,7 +335,7 @@ export default function CompletedSessionsPage() {
               <button
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
-                className="inline-flex items-center px-3 py-2 rounded-r-xl border border-slate-800 bg-slate-900 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                className="inline-flex items-center px-3 py-2 rounded-r-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
               >
                 <span className="mr-1">Next</span>
                 <ChevronRight className="h-4 w-4" />
@@ -349,6 +345,5 @@ export default function CompletedSessionsPage() {
         )}
       </main>
     </div>
-
   );
 }

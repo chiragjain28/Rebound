@@ -10,21 +10,20 @@ generator client {
 }
 
 model Staff {
-  id           Int       @id @default(autoincrement())
-  username     String    @unique
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
   passwordHash String
   name         String
-  role         String    @default("staff") // owner, staff
-  sessions     Session[]
+  role         String   @default("staff") // owner, staff
+  visits       Visit[]
 }
 
 model Table {
-  id       Int            @id @default(autoincrement())
-  number   Int
-  gameType String         @default("Pool") // Pool, MidSnooker
-  status   String         @default("available") // available, occupied
-  sessions Session[]
-  bookings TableBooking[]
+  id         Int            @id @default(autoincrement())
+  number     Int
+  gameType   String         @default("Pool") // Pool, MidSnooker
+  status     String         @default("available") // available, occupied
+  bookings   TableBooking[]
   tablePlays TablePlay[]
 
   @@unique([gameType, number])
@@ -38,72 +37,117 @@ model MenuItem {
   orders   Order[]
 }
 
-model Session {
-  id            String    @id // DDMMYYYYHHMMSS_customername
-  tableId       Int?      // null for PS4 or Cafe-only sessions
-  table         Table?    @relation(fields: [tableId], references: [id])
-  customerName  String    @default("Guest")
-  customerPhone String?
-  gameType      String    @default("None") // Pool, MidSnooker, PS4, None
-  playerCount   Int       @default(1)      // used only for PS4 (per person billing)
-  startTime     DateTime  @default(now())
-  endTime       DateTime?
-  status        String    @default("active") // active, completed
-  staffUsername String
-  staff         Staff     @relation(fields: [staffUsername], references: [username])
-  totalBill     Float     @default(0)
-  gameCost      Float     @default(0)
-  menuCost      Float     @default(0)
-  customAmount  Float     @default(0) // positive = extra charge, negative = discount
-  paymentStatus String    @default("pending") // pending, paid, partially_paid, udhar
-  orders        Order[]
-  payments      Payment[]
-  udhars        Udhar[]
-  tablePlays    TablePlay[]
+model Customer {
+  id               Int            @id @default(autoincrement())
+  firstName        String
+  lastName         String         @default("")
+  name             String         // Full combined name "firstName lastName"
+  phone            String         @unique
+  currentCreditDue Float          @default(0) // Live outstanding balance
+  lifetimeSpend    Float          @default(0)
+  lifetimePaid     Float          @default(0)
+  totalVisits      Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
-  @@index([tableId])
-  @@index([staffUsername])
+  visits           Visit[]
+  payments         Payment[]
+  creditRecords    CreditRecord[]
+
+  @@index([phone])
+  @@index([name])
+}
+
+model Visit {
+  id                   String         @id // e.g. "V_19102026172705_chiragjain"
+  customerId           Int
+  customer             Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  startTime            DateTime       @default(now())
+  endTime              DateTime?
+  status               String         @default("active") // "active" | "completed"
+  staffUsername        String
+  staff                Staff          @relation(fields: [staffUsername], references: [username])
+
+  // Financial summary for this visit
+  itemsTotal           Float          @default(0)
+  tablesTotal          Float          @default(0)
+  customAmount         Float          @default(0)
+  visitTotal           Float          @default(0)
+  paidAmount           Float          @default(0)
+  balanceDue           Float          @default(0)
+  paymentStatus        String         @default("pending") // "pending" | "paid" | "credit" | "partially_paid"
+
+  orders               Order[]
+  tablePlays           TablePlay[]
+  payments             Payment[]
+  creditRecords        CreditRecord[]
+
+  @@index([customerId])
   @@index([status])
-  @@index([customerPhone])
+  @@index([startTime])
+}
+
+model TablePlay {
+  id          Int       @id @default(autoincrement())
+  visitId     String
+  visit       Visit     @relation(fields: [visitId], references: [id], onDelete: Cascade)
+  tableId     Int?      // null for PS4
+  table       Table?    @relation(fields: [tableId], references: [id])
+  gameType    String    // Pool, MidSnooker, PS4
+  playerCount Int       @default(1)
+  startTime   DateTime  @default(now())
+  endTime     DateTime?
+  cost        Float     @default(0)
+  createdBy   String    // staff username
+
+  @@index([visitId])
+  @@index([tableId])
 }
 
 model Order {
   id         Int      @id @default(autoincrement())
-  sessionId  String
-  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  visitId    String
+  visit      Visit    @relation(fields: [visitId], references: [id], onDelete: Cascade)
   menuItemId Int
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
   quantity   Int
   price      Float    // price at ordering time
   createdAt  DateTime @default(now())
 
-  @@index([sessionId])
+  @@index([visitId])
   @@index([menuItemId])
 }
 
 model Payment {
-  id        Int      @id @default(autoincrement())
-  sessionId String
-  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  amount    Float
-  method    String   // Cash, UPI
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  customerId Int
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  visitId    String?
+  visit      Visit?   @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  amount     Float
+  method     String   // Cash, UPI
+  type       String   @default("visit_payment") // "visit_payment" | "credit_settlement"
+  createdAt  DateTime @default(now())
 
-  @@index([sessionId])
+  @@index([customerId])
+  @@index([visitId])
 }
 
-model Udhar {
-  id           Int      @id @default(autoincrement())
-  customerName String
-  amount       Float
-  sessionId    String?
-  session      Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  status       String   @default("unpaid") // unpaid, paid
-  createdAt    DateTime @default(now())
+model CreditRecord {
+  id            Int       @id @default(autoincrement())
+  customerId    Int
+  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  visitId       String?
+  visit         Visit?    @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  amount        Float
+  settledAmount Float     @default(0)
+  status        String    @default("unpaid") // "unpaid" | "paid"
+  notes         String?
+  createdAt     DateTime  @default(now())
 
-  @@index([sessionId])
-  @@index([customerName])
+  @@index([customerId])
   @@index([status])
+  @@index([visitId])
 }
 
 model TableBooking {
@@ -116,34 +160,4 @@ model TableBooking {
   createdAt     DateTime @default(now())
 
   @@index([tableId])
-}
-
-model TablePlay {
-  id          Int       @id @default(autoincrement())
-  sessionId   String
-  session     Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  tableId     Int?      // null for PS4
-  table       Table?    @relation(fields: [tableId], references: [id])
-  gameType    String    // Pool, MidSnooker, PS4
-  playerCount Int       @default(1)
-  startTime   DateTime  @default(now())
-  endTime     DateTime?
-  cost        Float     @default(0)
-  createdBy   String    // staff username
-
-  @@index([sessionId])
-  @@index([tableId])
-}
-
-model Customer {
-  id        Int      @id @default(autoincrement())
-  firstName String
-  lastName  String   @default("")
-  name      String   // Full combined name "firstName lastName"
-  phone     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([phone])
-  @@index([name])
 }

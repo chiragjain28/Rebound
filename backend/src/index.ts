@@ -8,11 +8,13 @@ import { initWebSocket } from './websocket';
 // Route imports
 import authRoutes from './routes/auth.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import visitRoutes from './routes/visit.routes';
 import sessionRoutes from './routes/session.routes';
 import menuRoutes from './routes/menu.routes';
 import orderRoutes from './routes/order.routes';
 import paymentRoutes from './routes/payment.routes';
 import tableBookingRoutes from './routes/tableBooking.routes';
+import creditRoutes from './routes/credit.routes';
 import udharRoutes from './routes/udhar.routes';
 import tableRoutes from './routes/table.routes';
 import customerRoutes from './routes/customer.routes';
@@ -73,11 +75,13 @@ app.use(express.json());
 // Routes setup
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/visits', visitRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/bookings', tableBookingRoutes);
+app.use('/api/credits', creditRoutes);
 app.use('/api/udhar', udharRoutes);
 app.use('/api/tables', tableRoutes);
 app.use('/api/customers', customerRoutes);

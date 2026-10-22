@@ -5,18 +5,19 @@ const index_1 = require("../index");
 const auth_1 = require("../middleware/auth");
 const websocket_1 = require("../websocket");
 const router = (0, express_1.Router)();
-// Add order(s) to session (supports both single item and bulk array of items)
+// Add order(s) to visit (supports both single item and bulk array of items)
 router.post('/', auth_1.authenticateToken, async (req, res) => {
-    const { sessionId, menuItemId, quantity, items } = req.body;
-    if (!sessionId) {
-        return res.status(400).json({ error: 'sessionId is required' });
+    const { visitId: rawVisitId, sessionId, menuItemId, quantity, items } = req.body;
+    const visitId = rawVisitId || sessionId;
+    if (!visitId) {
+        return res.status(400).json({ error: 'visitId is required' });
     }
     try {
-        const session = await index_1.prisma.session.findUnique({
-            where: { id: sessionId }
+        const visit = await index_1.prisma.visit.findUnique({
+            where: { id: visitId }
         });
-        if (!session) {
-            return res.status(404).json({ error: 'Session not found' });
+        if (!visit) {
+            return res.status(404).json({ error: 'Visit not found' });
         }
         let itemsToProcess = [];
         if (items && Array.isArray(items) && items.length > 0) {
@@ -28,13 +29,12 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
             }
             itemsToProcess = [{ menuItemId, quantity }];
         }
-        // Step 1: Bulk lookup menu items outside the transaction to reduce transaction duration
+        // Step 1: Bulk lookup menu items
         const menuItemIds = itemsToProcess.map(item => parseInt(item.menuItemId.toString()));
         const menuItems = await index_1.prisma.menuItem.findMany({
             where: { id: { in: menuItemIds } }
         });
         const menuItemsMap = new Map(menuItems.map(m => [m.id, m]));
-        // Quick validation checks
         for (const item of itemsToProcess) {
             const id = parseInt(item.menuItemId.toString());
             if (!menuItemsMap.has(id)) {
@@ -46,7 +46,7 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
                 data: itemsToProcess.map((item) => {
                     const menuItem = menuItemsMap.get(parseInt(item.menuItemId.toString()));
                     return {
-                        sessionId,
+                        visitId,
                         menuItemId: menuItem.id,
                         quantity: parseInt(item.quantity.toString()),
                         price: menuItem.price,
@@ -55,7 +55,7 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
             });
             const orders = await tx.order.findMany({
                 where: {
-                    sessionId,
+                    visitId,
                     menuItemId: { in: menuItemIds },
                 },
                 orderBy: { id: 'desc' },
@@ -63,27 +63,27 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
                 include: { menuItem: true },
             });
             orders.reverse();
-            orders.push(...[]); // just keeping array reference matching typings if needed
-            const updatedSession = await tx.session.findUnique({
-                where: { id: sessionId },
+            const updatedVisit = await tx.visit.findUnique({
+                where: { id: visitId },
                 include: { orders: true, payments: true }
             });
-            if (updatedSession) {
-                const menuCost = updatedSession.orders.reduce((sum, o) => sum + (o.quantity * o.price), 0);
-                const totalBill = Math.max(0, menuCost + updatedSession.gameCost + updatedSession.customAmount);
-                const paidAmount = updatedSession.payments.reduce((sum, p) => sum + p.amount, 0);
-                let paymentStatus = updatedSession.paymentStatus;
-                if (updatedSession.status === 'completed') {
-                    if (paidAmount >= totalBill) {
+            if (updatedVisit) {
+                const itemsTotal = updatedVisit.orders.reduce((sum, o) => sum + (o.quantity * o.price), 0);
+                const visitTotal = Math.max(0, itemsTotal + updatedVisit.tablesTotal + updatedVisit.customAmount);
+                const paidAmount = updatedVisit.payments.reduce((sum, p) => sum + p.amount, 0);
+                const balanceDue = Math.max(0, visitTotal - paidAmount);
+                let paymentStatus = updatedVisit.paymentStatus;
+                if (updatedVisit.status === 'completed') {
+                    if (paidAmount >= visitTotal) {
                         paymentStatus = 'paid';
                     }
                     else if (paidAmount > 0) {
                         paymentStatus = 'partially_paid';
                     }
                 }
-                await tx.session.update({
-                    where: { id: sessionId },
-                    data: { menuCost, totalBill, paymentStatus }
+                await tx.visit.update({
+                    where: { id: visitId },
+                    data: { itemsTotal, visitTotal, balanceDue, paymentStatus }
                 });
             }
             return orders;
@@ -91,8 +91,7 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
             maxWait: 10000,
             timeout: 15000
         });
-        (0, websocket_1.broadcast)({ type: 'ORDER_ADD_BULK', orders: createdOrders, sessionId });
-        // For backwards compatibility, if it was a single item request, return the first order object
+        (0, websocket_1.broadcast)({ type: 'ORDER_ADD_BULK', orders: createdOrders, visitId, sessionId: visitId });
         if (items && Array.isArray(items) && items.length > 0) {
             res.status(201).json(createdOrders);
         }
@@ -104,7 +103,7 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-// Remove order from session
+// Remove order from visit
 router.delete('/:id', auth_1.authenticateToken, async (req, res) => {
     try {
         const orderId = parseInt(req.params.id);
@@ -114,35 +113,36 @@ router.delete('/:id', auth_1.authenticateToken, async (req, res) => {
         if (!order) {
             return res.status(404).json({ error: 'Order not found' });
         }
-        // Fetch the session's current totals BEFORE deleting, so we can do in-memory math
-        const session = await index_1.prisma.session.findUnique({
-            where: { id: order.sessionId },
-            select: { menuCost: true, gameCost: true, customAmount: true, paymentStatus: true, status: true, payments: { select: { amount: true } } }
+        const visit = await index_1.prisma.visit.findUnique({
+            where: { id: order.visitId },
+            include: { payments: true }
         });
         await index_1.prisma.order.delete({
             where: { id: orderId }
         });
-        if (session) {
-            // In-memory calculation — no extra DB round-trip needed
-            const removedCost = order.quantity * order.price;
-            const newMenuCost = Math.max(0, session.menuCost - removedCost);
-            const newTotalBill = Math.max(0, newMenuCost + session.gameCost + session.customAmount);
-            const paidAmount = session.payments.reduce((sum, p) => sum + p.amount, 0);
-            let paymentStatus = session.paymentStatus;
-            if (session.status === 'completed') {
-                if (paidAmount >= newTotalBill) {
+        if (visit) {
+            const remainingOrders = await index_1.prisma.order.findMany({
+                where: { visitId: order.visitId }
+            });
+            const newItemsTotal = remainingOrders.reduce((sum, o) => sum + (o.quantity * o.price), 0);
+            const newVisitTotal = Math.max(0, newItemsTotal + visit.tablesTotal + visit.customAmount);
+            const paidAmount = visit.payments.reduce((sum, p) => sum + p.amount, 0);
+            const balanceDue = Math.max(0, newVisitTotal - paidAmount);
+            let paymentStatus = visit.paymentStatus;
+            if (visit.status === 'completed') {
+                if (paidAmount >= newVisitTotal) {
                     paymentStatus = 'paid';
                 }
                 else if (paidAmount > 0) {
                     paymentStatus = 'partially_paid';
                 }
             }
-            await index_1.prisma.session.update({
-                where: { id: order.sessionId },
-                data: { menuCost: newMenuCost, totalBill: newTotalBill, paymentStatus }
+            await index_1.prisma.visit.update({
+                where: { id: order.visitId },
+                data: { itemsTotal: newItemsTotal, visitTotal: newVisitTotal, balanceDue, paymentStatus }
             });
         }
-        (0, websocket_1.broadcast)({ type: 'ORDER_REMOVE', orderId, sessionId: order.sessionId });
+        (0, websocket_1.broadcast)({ type: 'ORDER_REMOVE', orderId, visitId: order.visitId, sessionId: order.visitId });
         res.json({ message: 'Order removed successfully' });
     }
     catch (error) {

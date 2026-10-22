@@ -29,39 +29,33 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#0a0d14] px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
+    <div className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12 sm:px-6 lg:px-8">
       
-      {/* Background Ambient Neon Glow Orbs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-[120px] pointer-events-none" />
-      
-      <div className="relative w-full max-w-md space-y-8 bg-[#111827]/80 backdrop-blur-2xl p-8 sm:p-10 rounded-3xl border border-slate-800/90 shadow-[0_20px_50px_rgba(0,0,0,0.8)]">
+      <div className="relative w-full max-w-md space-y-8 bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-xl">
         
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-500 via-purple-500 to-indigo-600 p-[2px] shadow-[0_0_25px_rgba(0,242,254,0.4)]">
-            <div className="w-full h-full bg-[#0a0d14] rounded-[14px] flex items-center justify-center">
-              <span className="text-3xl">🎱</span>
-            </div>
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center shadow-xs">
+            <span className="text-2xl">🎱</span>
           </div>
           <div>
-            <h1 className="text-3xl font-extrabold tracking-wider bg-gradient-to-r from-cyan-400 via-sky-300 to-purple-400 bg-clip-text text-transparent glow-text-cyan uppercase font-display">
-              Rebound ERP
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 uppercase font-display">
+              Rebound POS
             </h1>
-            <p className="mt-1 text-xs font-semibold text-slate-400 tracking-wider font-mono">
-              GAMING LOUNGE & SNOOKER CLUB
+            <p className="mt-1 text-xs font-semibold text-slate-500 tracking-wider font-mono">
+              ENTERPRISE BILLING & CLUB MANAGEMENT
             </p>
           </div>
         </div>
 
         {error && (
-          <div className="rounded-2xl bg-rose-950/50 p-4 border border-rose-500/30 backdrop-blur-md animate-in fade-in slide-in-from-top-2">
+          <div className="rounded-2xl bg-rose-50 p-4 border border-rose-200 animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ShieldAlert className="h-5 w-5 text-rose-400" aria-hidden="true" />
+                <ShieldAlert className="h-5 w-5 text-rose-600" aria-hidden="true" />
               </div>
               <div className="ml-3">
-                <h3 className="text-xs font-bold text-rose-200">{error}</h3>
+                <h3 className="text-xs font-bold text-rose-800">{error}</h3>
               </div>
             </div>
           </div>
@@ -70,11 +64,11 @@ export default function LoginPage() {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="username" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+              <label htmlFor="username" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 font-mono">
                 Staff Username
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <User className="h-4 w-4" />
                 </div>
                 <input
@@ -85,17 +79,17 @@ export default function LoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter staff ID or username"
-                  className="block w-full pl-10 pr-4 py-3 bg-slate-900/90 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all duration-300"
+                  className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-colors"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+              <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5 font-mono">
                 Password
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Lock className="h-4 w-4" />
                 </div>
                 <input
@@ -106,7 +100,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="block w-full pl-10 pr-4 py-3 bg-slate-900/90 border border-slate-800 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all duration-300"
+                  className="block w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-colors"
                 />
               </div>
             </div>
@@ -116,25 +110,23 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative flex w-full justify-center rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 p-[1px] font-bold text-white shadow-[0_0_20px_rgba(0,242,254,0.3)] hover:shadow-[0_0_30px_rgba(0,242,254,0.5)] transition-all duration-300 active:scale-[0.99] disabled:opacity-50"
+              className="flex w-full justify-center items-center py-3.5 px-4 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors duration-200 active:scale-[0.99] disabled:opacity-50 text-sm uppercase tracking-wider shadow-xs"
             >
-              <div className="w-full h-full py-3.5 rounded-[11px] bg-gradient-to-r from-cyan-500 to-blue-600 group-hover:from-cyan-400 group-hover:to-blue-500 flex items-center justify-center transition-all">
-                {loading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  <span className="flex items-center gap-2 text-sm font-extrabold uppercase tracking-wider">
-                    <Sparkles className="h-4 w-4" />
-                    Enter Lounge Portal
-                  </span>
-                )}
-              </div>
+              {loading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  Sign In to Terminal
+                </span>
+              )}
             </button>
           </div>
         </form>
 
         <div className="pt-4 text-center">
-          <p className="text-[11px] text-slate-500 font-mono">
-            Powered by Rebound ERP System v1.0
+          <p className="text-[11px] text-slate-400 font-mono">
+            Powered by Rebound POS Enterprise Edition
           </p>
         </div>
       </div>

@@ -41,7 +41,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onOrderAdded,
       // 1. Calculate overall session duration
       const sessionStart = new Date(session.startTime).getTime();
       const sessionEnd = session.endTime ? new Date(session.endTime).getTime() : Date.now();
-      const sessionDiff = Math.max(0, sessionEnd - sessionStart); // guard against clock skew
+      const sessionDiff = Math.max(0, sessionEnd - sessionStart);
       const sh = Math.floor(sessionDiff / 3600000);
       const sm = Math.floor((sessionDiff % 3600000) / 60000);
       const ss = Math.floor((sessionDiff % 60000) / 1000);
@@ -70,8 +70,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onOrderAdded,
       }
     };
 
-    tick(); // run immediately so there is no blank flash on mount
-    // Only keep ticking for active sessions; completed sessions are frozen
+    tick();
     if (session.endTime) return;
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
@@ -90,7 +89,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onOrderAdded,
   const isInClub = session.status === 'active';
 
   return (
-    <div className="group relative bg-[#111827]/80 backdrop-blur-xl rounded-2xl border border-slate-800 p-5 shadow-[0_10px_30px_rgba(0,0,0,0.5)] hover:border-cyan-500/50 hover:shadow-[0_0_25px_rgba(0,242,254,0.15)] transition-all duration-300 flex flex-col justify-between h-full space-y-4">
+    <div className="group relative bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:border-slate-300 hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full space-y-4">
       
       {/* Top Header */}
       <div className="space-y-3">
@@ -98,15 +97,15 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onOrderAdded,
           <div className="flex items-center gap-2 flex-wrap">
             {/* Live Status Badge */}
             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-extrabold tracking-wider ${
-              isInClub ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40 shadow-[0_0_10px_rgba(16,185,129,0.3)]' : 'bg-slate-900 text-slate-400 border border-slate-800'
+              isInClub ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
             }`}>
-              <span className={`w-2 h-2 rounded-full mr-1.5 ${isInClub ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
+              <span className={`w-2 h-2 rounded-full mr-1.5 ${isInClub ? 'bg-emerald-500' : 'bg-slate-400'}`} />
               {isInClub ? 'IN LOUNGE' : 'CLOSED'}
             </span>
 
             {/* Table Badge */}
             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${
-              isTableActive ? 'bg-cyan-950/80 text-cyan-300 border border-cyan-500/40 shadow-[0_0_10px_rgba(0,242,254,0.2)]' : 'bg-slate-900/60 text-slate-500 border border-slate-800/80'
+              isTableActive ? 'bg-blue-50 text-blue-800 border border-blue-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
             }`}>
               {isTableActive
                 ? `${GAME_LABELS[activePlay.gameType] || activePlay.gameType}`
@@ -115,111 +114,107 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onOrderAdded,
             </span>
           </div>
 
-          <div className="flex items-center text-xs font-mono font-bold text-cyan-400 bg-slate-900/90 px-2.5 py-1 rounded-lg border border-slate-800">
-            <Clock className="h-3.5 w-3.5 mr-1.5 text-cyan-400" />
+          <div className="flex items-center text-xs font-mono font-bold text-slate-700 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200">
+            <Clock className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
             <span>{sessionElapsed}</span>
           </div>
         </div>
 
         {/* Customer Name & Phone */}
         <div className="flex flex-col">
-          <h3 className="text-lg font-extrabold text-white flex items-center gap-2 font-display tracking-normal">
-            <User className="h-4 w-4 text-cyan-400 shrink-0" />
-            <span className="inline-flex flex-wrap items-center gap-x-2">
-              {session.customerName.split(/\s+/).map((part, idx) => (
-                <span key={idx}>{part}</span>
-              ))}
-            </span>
+          <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2 font-display tracking-tight">
+            <User className="h-4 w-4 text-slate-400 shrink-0" />
+            <span className="truncate">{session.customerName}</span>
           </h3>
           {session.customerPhone && (
-            <p className="text-xs font-mono font-semibold text-slate-400 flex items-center gap-1.5 mt-0.5 ml-6">
-              <Phone className="h-3 w-3 text-cyan-400/80 shrink-0" />
+            <p className="text-xs font-mono font-semibold text-slate-500 flex items-center gap-1.5 mt-0.5 ml-6">
+              <Phone className="h-3 w-3 text-slate-400 shrink-0" />
               <span>{session.customerPhone}</span>
             </p>
           )}
         </div>
 
-        {/* Prior Udhar Alert - Only show if there is actually unpaid prior udhar remaining after payments */}
+        {/* Prior Outstanding Credit Alert */}
         {remainingPriorUdhar > 0 ? (
-          <div className="text-xs font-bold text-rose-300 bg-rose-950/60 border border-rose-500/40 px-3 py-1.5 rounded-xl animate-pulse flex items-center gap-1.5">
-            <AlertCircle className="h-4 w-4 shrink-0 text-rose-400" />
-            <span>Prior Udhar: ₹{remainingPriorUdhar}</span>
+          <div className="text-xs font-bold text-rose-800 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5">
+            <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+            <span>Prior Credit: ₹{remainingPriorUdhar}</span>
           </div>
         ) : null}
 
         {/* Active Game Table Box */}
         {activePlay && (
-          <div className="bg-gradient-to-r from-cyan-950/40 to-slate-900/80 border border-cyan-500/30 rounded-xl p-3 flex justify-between items-center text-xs text-cyan-200">
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex justify-between items-center text-xs text-slate-700">
             <div>
-              <p className="font-extrabold flex items-center gap-1.5 text-white">
-                <Gamepad2 className="h-4 w-4 text-cyan-400" />
+              <p className="font-extrabold flex items-center gap-1.5 text-slate-900">
+                <Gamepad2 className="h-4 w-4 text-slate-500" />
                 {GAME_LABELS[activePlay.gameType] || activePlay.gameType}
               </p>
             </div>
             <div className="text-right">
-              <p className="font-mono font-extrabold text-cyan-400 text-sm">{activePlayElapsed}</p>
+              <p className="font-mono font-extrabold text-slate-900 text-sm">{activePlayElapsed}</p>
             </div>
           </div>
         )}
       </div>
 
       {/* Middle Billing Bar */}
-      <div className="pt-3 flex justify-between items-end border-t border-slate-800/80">
+      <div className="pt-3 flex justify-between items-end border-t border-slate-100">
         <div className="space-y-0.5">
           {advanceCredit > 0 ? (
             <>
-              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest font-mono">
+              <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider font-mono">
                 Advance Balance
               </span>
-              <div className="text-2xl font-black text-emerald-400 tracking-tight glow-text-emerald">
+              <div className="text-2xl font-black text-emerald-700 tracking-tight font-display">
                 ₹{advanceCredit.toFixed(2)}
               </div>
-              <p className="text-[10px] text-slate-400 font-mono">
+              <p className="text-[10px] text-slate-500 font-mono">
                 Bill ₹{grossBill.toFixed(0)} · Adv ₹{paymentsTotal.toFixed(0)}
               </p>
             </>
           ) : paymentsTotal > 0 ? (
             <>
-              <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest font-mono">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
                 Payable Due
               </span>
-              <div className="text-2xl font-black text-white tracking-tight glow-text-cyan">
+              <div className="text-2xl font-black text-slate-900 tracking-tight font-display">
                 ₹{netDue.toFixed(2)}
               </div>
-              <p className="text-[10px] text-emerald-400 font-mono">
+              <p className="text-[10px] text-emerald-700 font-mono">
                 Paid: ₹{paymentsTotal.toFixed(0)} of ₹{grossBill.toFixed(0)}
               </p>
             </>
           ) : (
             <>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
                 Current Bill
               </span>
-              <div className="text-2xl font-black text-white tracking-tight glow-text-cyan">
+              <div className="text-2xl font-black text-slate-900 tracking-tight font-display">
                 ₹{grossBill.toFixed(2)}
               </div>
             </>
           )}
         </div>
 
-        <div className="text-right text-xs text-slate-400 font-medium space-y-1">
-          <p className="flex items-center gap-1 justify-end font-semibold text-slate-300">
-            <Coffee className="h-3.5 w-3.5 text-cyan-400" />
+        <div className="text-right text-xs text-slate-500 font-medium space-y-1">
+          <p className="flex items-center gap-1 justify-end font-semibold text-slate-700">
+            <Coffee className="h-3.5 w-3.5 text-slate-400" />
             <span>{ordersCount} items ordered</span>
           </p>
-          <p className="text-[10px] text-slate-500 font-mono">Staff: {session.staffUsername}</p>
+          <p className="text-[10px] text-slate-400 font-mono">Staff: {session.staffUsername}</p>
         </div>
       </div>
 
-      {/* Action Buttons: 3/4 View Live Session + 1/4 Add Items Plus Button */}
+      {/* Action Buttons: View Live Session + Quick Add Items Plus Button */}
       <div className="pt-1 flex items-center gap-2">
         <Link
           href={`/sessions/${session.id}`}
-          className={`inline-flex justify-center items-center px-3 py-2.5 rounded-xl text-xs font-extrabold uppercase tracking-wider text-cyan-300 bg-slate-900 border border-slate-700/80 hover:bg-cyan-950/40 hover:border-cyan-500/50 hover:text-white transition-all duration-300 custom-button shadow-md truncate ${
+          className={`inline-flex justify-center items-center px-3 py-2.5 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 transition-all duration-200 custom-button shadow-xs truncate ${
             isInClub ? 'flex-[3]' : 'w-full'
           }`}
         >
-          <Eye className="h-4 w-4 mr-2 text-cyan-400 shrink-0" />
+          <Eye className="h-4 w-4 mr-2 shrink-0" />
           <span className="truncate">View Live Session</span>
         </Link>
 
@@ -236,7 +231,7 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onOrderAdded,
               }
             }}
             title="Add Items / Place Order"
-            className="flex-1 inline-flex justify-center items-center py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-[0_0_15px_rgba(0,242,254,0.3)] hover:shadow-[0_0_20px_rgba(0,242,254,0.5)] transition-all duration-300 custom-button cursor-pointer shrink-0"
+            className="flex-1 inline-flex justify-center items-center py-2.5 px-3 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 shadow-xs transition-all duration-200 custom-button cursor-pointer shrink-0"
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -259,4 +254,3 @@ export const SessionCard: React.FC<SessionCardProps> = ({ session, onOrderAdded,
     </div>
   );
 };
-

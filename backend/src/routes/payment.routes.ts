@@ -5,54 +5,155 @@ import { broadcast } from '../websocket';
 
 const router = Router();
 
-// Record a payment
+// Record a payment (supports visit payment or customer credit settlement)
 router.post('/', authenticateToken, async (req, res) => {
-  const { sessionId, amount, method } = req.body;
+  const { visitId: rawVisitId, sessionId, customerId: rawCustId, amount, method, type } = req.body;
+  const visitId = rawVisitId || sessionId;
+  const payAmount = parseFloat(amount);
 
-  if (!sessionId || amount === undefined || isNaN(amount) || !method) {
-    return res.status(400).json({ error: 'sessionId, amount, and method are required' });
+  if (isNaN(payAmount) || payAmount <= 0 || !method) {
+    return res.status(400).json({ error: 'Valid amount and method are required' });
   }
 
   try {
-    const session = await prisma.session.findUnique({
-      where: { id: sessionId },
-      include: { payments: true }
-    });
+    let customerId = rawCustId ? parseInt(rawCustId) : null;
+    let visit = null;
 
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
+    if (visitId) {
+      visit = await prisma.visit.findUnique({
+        where: { id: visitId },
+        include: {
+          payments: true,
+          orders: true,
+          tablePlays: true,
+          customer: true
+        }
+      });
+      if (!visit) {
+        return res.status(404).json({ error: 'Visit not found' });
+      }
+      customerId = visit.customerId;
     }
 
+    if (!customerId) {
+      return res.status(400).json({ error: 'customerId or visitId is required' });
+    }
+
+    // Create payment record
     const payment = await prisma.payment.create({
       data: {
-        sessionId,
-        amount: parseFloat(amount),
-        method
+        customerId,
+        visitId: visit ? visit.id : null,
+        amount: payAmount,
+        method,
+        type: type || (visit ? 'visit_payment' : 'credit_settlement')
       }
     });
 
-    const totalPayments = session.payments.reduce((sum, p) => sum + p.amount, 0) + parseFloat(amount);
-    let paymentStatus = session.paymentStatus;
-    
-    if (session.status === 'completed') {
-      if (totalPayments >= session.totalBill) {
+    // If visit exists, update visit paidAmount and balanceDue
+    if (visit) {
+      const allPayments = await prisma.payment.findMany({ where: { visitId: visit.id } });
+      const totalPaidForVisit = allPayments.reduce((sum, p) => sum + p.amount, 0);
+      const balanceDue = Math.max(0, visit.visitTotal - totalPaidForVisit);
+
+      let paymentStatus = visit.paymentStatus;
+      if (balanceDue === 0) {
         paymentStatus = 'paid';
-      } else if (totalPayments > 0) {
+      } else if (totalPaidForVisit > 0) {
         paymentStatus = 'partially_paid';
       }
+
+      await prisma.visit.update({
+        where: { id: visit.id },
+        data: {
+          paidAmount: totalPaidForVisit,
+          balanceDue,
+          paymentStatus
+        }
+      });
+
+      // If payment exceeds visit total, apply excess to customer's unpaid credit records
+      let excess = totalPaidForVisit - visit.visitTotal;
+      if (excess > 0) {
+        const unpaidCredits = await prisma.creditRecord.findMany({
+          where: {
+            customerId,
+            status: 'unpaid',
+            visitId: { not: visit.id }
+          },
+          orderBy: { createdAt: 'asc' }
+        });
+
+        for (const cr of unpaidCredits) {
+          if (excess <= 0) break;
+          const due = cr.amount - cr.settledAmount;
+          if (excess >= due) {
+            excess -= due;
+            await prisma.creditRecord.update({
+              where: { id: cr.id },
+              data: { status: 'paid', settledAmount: cr.amount }
+            });
+          } else {
+            await prisma.creditRecord.update({
+              where: { id: cr.id },
+              data: { settledAmount: cr.settledAmount + excess }
+            });
+            excess = 0;
+          }
+        }
+      }
     } else {
-      paymentStatus = totalPayments > 0 ? 'partially_paid' : 'pending';
+      // General credit settlement: settle unpaid credit records directly
+      let remainingToSettle = payAmount;
+      const unpaidCredits = await prisma.creditRecord.findMany({
+        where: { customerId, status: 'unpaid' },
+        orderBy: { createdAt: 'asc' }
+      });
+
+      for (const cr of unpaidCredits) {
+        if (remainingToSettle <= 0) break;
+        const due = cr.amount - cr.settledAmount;
+        if (remainingToSettle >= due) {
+          remainingToSettle -= due;
+          await prisma.creditRecord.update({
+            where: { id: cr.id },
+            data: { status: 'paid', settledAmount: cr.amount }
+          });
+        } else {
+          await prisma.creditRecord.update({
+            where: { id: cr.id },
+            data: { settledAmount: cr.settledAmount + remainingToSettle }
+          });
+          remainingToSettle = 0;
+        }
+      }
     }
 
-    const updatedSession = await prisma.session.update({
-      where: { id: sessionId },
-      data: { paymentStatus },
-      include: { table: true }
-    });
+    // Recompute customer aggregates
+    const customerStats = await prisma.$queryRaw<any[]>`
+      SELECT
+        COALESCE(SUM(cr.amount - cr."settledAmount"), 0) as current_credit_due,
+        COALESCE((SELECT SUM("visitTotal") FROM "Visit" WHERE "customerId" = ${customerId}), 0) as lifetime_spend,
+        COALESCE((SELECT SUM(amount) FROM "Payment" WHERE "customerId" = ${customerId}), 0) as lifetime_paid
+      FROM "CreditRecord" cr
+      WHERE cr."customerId" = ${customerId} AND cr.status = 'unpaid'
+    `;
 
-    broadcast({ type: 'PAYMENT_RECORDED', payment, session: updatedSession });
+    if (customerStats && customerStats.length > 0) {
+      await prisma.customer.update({
+        where: { id: customerId },
+        data: {
+          currentCreditDue: Number(customerStats[0].current_credit_due) || 0,
+          lifetimeSpend: Number(customerStats[0].lifetime_spend) || 0,
+          lifetimePaid: Number(customerStats[0].lifetime_paid) || 0
+        }
+      });
+    }
+
+    broadcast({ type: 'PAYMENT_RECORD', payment, visitId });
     res.status(201).json(payment);
   } catch (error: any) {
+    console.error('Error recording payment:', error);
     res.status(500).json({ error: error.message });
   }
 });

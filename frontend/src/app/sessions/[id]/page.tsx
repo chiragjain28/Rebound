@@ -114,9 +114,9 @@ const CategorySection: React.FC<CategorySectionProps> = ({
   if (orders.length === 0) return null;
 
   return (
-    <div className="bg-[#111827]/80 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs">
       {/* Header */}
-      <div className={`flex items-center justify-between px-5 py-3.5 border-b border-slate-800 rounded-t-2xl ${accentClass}`}>
+      <div className={`flex items-center justify-between px-5 py-3.5 border-b border-slate-200 rounded-t-2xl ${accentClass}`}>
 
         <div className="flex items-center gap-2 font-semibold text-sm">
           {icon}
@@ -129,26 +129,26 @@ const CategorySection: React.FC<CategorySectionProps> = ({
       </div>
 
       {/* Rows */}
-      <div className="divide-y divide-slate-800">
+      <div className="divide-y divide-slate-100">
         {groupedOrders.map((group) => {
           const hasMultiple = group.items.length > 1;
           return (
-            <div key={group.menuItemId} className="flex items-center justify-between px-5 py-3.5 text-sm hover:bg-slate-900/60 transition-colors last:rounded-b-2xl">
+            <div key={group.menuItemId} className="flex items-center justify-between px-5 py-3.5 text-sm hover:bg-slate-50 transition-colors last:rounded-b-2xl">
               <div className="flex-1 min-w-0">
                 <div className="relative group inline-flex items-center gap-2">
-                  <span className="font-bold text-white cursor-help">{group.name}</span>
-                  <span className="text-slate-400 font-mono font-semibold">× {group.totalQuantity}</span>
+                  <span className="font-bold text-slate-900 cursor-help">{group.name}</span>
+                  <span className="text-slate-500 font-mono font-semibold">× {group.totalQuantity}</span>
                   
                   {/* Order count timeline trigger badge */}
-                  <span className="inline-flex items-center gap-1 text-[10px] text-cyan-300 bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 font-mono cursor-help select-none">
-                    <Clock className="h-2.5 w-2.5 text-cyan-400" />
+                  <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2 py-0.5 font-mono cursor-help select-none">
+                    <Clock className="h-2.5 w-2.5 text-slate-500" />
                     {group.items.length} order{hasMultiple ? 's' : ''}
                   </span>
 
                   {/* Timeline Hover Popover Wrapper (bridges the hover gap) */}
                   <div className="absolute left-0 bottom-full pb-2 hidden group-hover:block z-50">
-                    <div className="bg-[#0e131f] text-white text-xs rounded-xl p-3 shadow-2xl w-60 space-y-2 border border-slate-700 cursor-default relative">
-                      <p className="font-extrabold text-[9px] text-cyan-400 border-b border-slate-800 pb-1.5 uppercase tracking-wider font-mono">
+                    <div className="bg-slate-900 text-white text-xs rounded-xl p-3 shadow-xl w-60 space-y-2 border border-slate-800 cursor-default relative">
+                      <p className="font-extrabold text-[9px] text-slate-300 border-b border-slate-800 pb-1.5 uppercase tracking-wider font-mono">
                         Order Timeline
                       </p>
                       <div className="space-y-1.5 max-h-40 overflow-y-auto">
@@ -176,14 +176,14 @@ const CategorySection: React.FC<CategorySectionProps> = ({
                         })}
                       </div>
                       {/* Tooltip Arrow */}
-                      <div className="absolute top-full left-6 w-2 h-2 bg-[#0e131f] border-r border-b border-slate-700 transform rotate-45 -translate-y-1"></div>
+                      <div className="absolute top-full left-6 w-2 h-2 bg-slate-900 border-r border-b border-slate-800 transform rotate-45 -translate-y-1"></div>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-4 ml-4">
-                <span className="font-mono font-bold text-white text-sm">
+                <span className="font-mono font-bold text-slate-900 text-sm">
                   ₹{(group.totalQuantity * group.price).toFixed(2)}
                 </span>
               </div>
@@ -216,21 +216,21 @@ const TablePlaySection: React.FC<TablePlaySectionProps> = ({
   const totalCost = completedPlaysTotal;
 
   return (
-    <div className="bg-[#111827]/80 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3.5 bg-purple-950/40 text-purple-300 border-b border-purple-500/30 rounded-t-2xl">
+      <div className="flex items-center justify-between px-5 py-3.5 bg-slate-50 text-slate-800 border-b border-slate-200 rounded-t-2xl">
         <div className="flex items-center gap-2 font-semibold text-sm">
-          <Gamepad2 className="h-4 w-4 text-purple-400" />
+          <Gamepad2 className="h-4 w-4 text-slate-600" />
           <span>Table & Game Play History</span>
-          <span className="text-xs font-medium opacity-75 ml-1">
+          <span className="text-xs font-medium text-slate-500 ml-1">
             ({tablePlays.length} Frame{tablePlays.length !== 1 ? 's' : ''})
           </span>
         </div>
-        <span className="font-mono font-bold text-sm text-purple-300">₹{totalCost.toFixed(2)}</span>
+        <span className="font-mono font-bold text-sm text-slate-900">₹{totalCost.toFixed(2)}</span>
       </div>
 
       {/* Rows */}
-      <div className="divide-y divide-slate-800">
+      <div className="divide-y divide-slate-100">
         {tablePlays.map((tp) => {
           const isLive = !tp.endTime;
           let durStr = '';
@@ -254,30 +254,30 @@ const TablePlaySection: React.FC<TablePlaySectionProps> = ({
             : `${tp.gameType}${tp.table ? ` (Table ${tp.table.number})` : ''}`;
 
           return (
-            <div key={tp.id} className="flex items-center justify-between px-5 py-3.5 text-sm hover:bg-slate-900/60 transition-colors last:rounded-b-2xl">
+            <div key={tp.id} className="flex items-center justify-between px-5 py-3.5 text-sm hover:bg-slate-50 transition-colors last:rounded-b-2xl">
               <div className="flex-1 min-w-0">
                 <div className="relative group inline-flex items-center gap-2 flex-wrap">
-                  <span className="font-bold text-white cursor-help">{label}</span>
-                  <span className={`text-slate-400 font-mono font-semibold ${isLive ? 'animate-pulse text-purple-400' : ''}`}>
+                  <span className="font-bold text-slate-900 cursor-help">{label}</span>
+                  <span className={`text-slate-500 font-mono font-semibold ${isLive ? 'text-blue-600' : ''}`}>
                     × {durStr}
                   </span>
                   
                   {/* Start time badge */}
-                  <span className="inline-flex items-center gap-1 text-[10px] text-slate-300 bg-slate-900 border border-slate-700 rounded-lg px-2 py-0.5 font-mono cursor-help select-none">
-                    <Clock className="h-2.5 w-2.5 text-purple-400" />
+                  <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 bg-slate-100 border border-slate-200 rounded-lg px-2 py-0.5 font-mono cursor-help select-none">
+                    <Clock className="h-2.5 w-2.5 text-slate-500" />
                     Timeline
                   </span>
 
                   {isLive && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-950 text-rose-300 border border-rose-500/40 animate-pulse uppercase tracking-wider">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wider">
                       LIVE
                     </span>
                   )}
 
                   {/* Timeline Hover Popover Wrapper */}
                   <div className="absolute left-0 bottom-full pb-2 hidden group-hover:block z-50">
-                    <div className="bg-[#0e131f] text-white text-xs rounded-xl p-3 shadow-2xl w-60 space-y-2 border border-slate-700 cursor-default relative">
-                      <p className="font-extrabold text-[9px] text-purple-400 border-b border-slate-800 pb-1.5 uppercase tracking-wider font-mono">
+                    <div className="bg-slate-900 text-white text-xs rounded-xl p-3 shadow-xl w-60 space-y-2 border border-slate-800 cursor-default relative">
+                      <p className="font-extrabold text-[9px] text-slate-300 border-b border-slate-800 pb-1.5 uppercase tracking-wider font-mono">
                         Play Timeline
                       </p>
                       <div className="space-y-1.5 font-mono text-[11px]">
@@ -296,29 +296,29 @@ const TablePlaySection: React.FC<TablePlaySectionProps> = ({
                           </div>
                         )}
                       </div>
-                      <div className="absolute top-full left-6 w-2 h-2 bg-[#0e131f] border-r border-b border-slate-700 transform rotate-45 -translate-y-1"></div>
+                      <div className="absolute top-full left-6 w-2 h-2 bg-slate-900 border-r border-b border-slate-800 transform rotate-45 -translate-y-1"></div>
                     </div>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-2.5 ml-4 shrink-0">
-                <span className={`font-mono font-bold ${isLive ? 'text-purple-400 animate-pulse' : 'text-white'}`}>
+                <span className={`font-mono font-bold ${isLive ? 'text-blue-600' : 'text-slate-900'}`}>
                   {costStr}
                 </span>
                 {isLive && isActive && (
                   <button
                     onClick={() => onEndPlay(tp.id)}
-                    className="px-2 py-1 text-[10px] font-extrabold uppercase tracking-wider bg-rose-950/80 text-rose-300 border border-rose-500/50 rounded-lg hover:bg-rose-600 hover:text-white transition-all shadow-sm flex items-center gap-1 shrink-0 cursor-pointer"
+                    className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 rounded-lg hover:bg-rose-100 transition-all shadow-xs flex items-center gap-1 shrink-0 cursor-pointer"
                     title="Stop this game play"
                   >
-                    <StopCircle className="h-3 w-3 text-rose-400 group-hover:text-white" />
+                    <StopCircle className="h-3 w-3 text-rose-600" />
                     Stop
                   </button>
                 )}
                 {isActive && onDeletePlay && (
                   <button
                     onClick={() => onDeletePlay(tp.id)}
-                    className="p-1 text-slate-500 hover:text-rose-400 hover:bg-rose-950/50 border border-transparent hover:border-rose-500/30 rounded-lg transition-all shrink-0 cursor-pointer"
+                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 rounded-lg transition-all shrink-0 cursor-pointer"
                     title="Delete this table play"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -689,24 +689,24 @@ export default function SessionDetailsPage() {
 
   if (authLoading || (!user && !sessionError)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0d14]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-400"></div>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-slate-900"></div>
       </div>
     );
   }
 
   if (sessionError) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0d14] text-white p-6 space-y-4">
-        <div className="bg-[#111827] border border-slate-800 rounded-3xl p-8 max-w-md w-full text-center space-y-4 shadow-2xl">
-          <AlertCircle className="h-12 w-12 text-rose-400 mx-auto" />
-          <h2 className="text-xl font-extrabold font-display">Session Not Found</h2>
-          <p className="text-sm text-slate-400">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 text-slate-900 p-6 space-y-4">
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 max-w-md w-full text-center space-y-4 shadow-xl">
+          <AlertCircle className="h-12 w-12 text-rose-500 mx-auto" />
+          <h2 className="text-xl font-bold font-display">Session Not Found</h2>
+          <p className="text-sm text-slate-500">
             {sessionError.message || 'Unable to load details for this session. It may have been removed or database connection failed.'}
           </p>
           <button
             onClick={() => router.push('/dashboard')}
-            className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-xs font-extrabold uppercase tracking-wider rounded-xl text-white transition-all shadow-[0_0_15px_rgba(0,242,254,0.3)]"
+            className="inline-flex items-center px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
@@ -718,8 +718,8 @@ export default function SessionDetailsPage() {
 
   if (loading || !session) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0d14]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-400"></div>
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-slate-900"></div>
       </div>
     );
   }
@@ -987,48 +987,44 @@ export default function SessionDetailsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0d14] text-slate-100 pb-16 font-sans">
+    <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 font-sans">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
 
         {/* ── Top nav ── */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <button
             onClick={() => router.push('/dashboard')}
-            className="inline-flex items-center text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-cyan-400 transition-colors"
+            className="inline-flex items-center text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors"
           >
-            <ArrowLeft className="h-4 w-4 mr-2 text-cyan-400" />
-            Back to Dashboard
+            <ArrowLeft className="h-4 w-4 mr-1.5 text-slate-500" />
+            Back to Floor Plan
           </button>
           <span
             className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold tracking-wider ${
               isActive
-                ? 'bg-rose-950/80 text-rose-300 border border-rose-500/40 shadow-[0_0_12px_rgba(244,63,94,0.3)]'
-                : 'bg-emerald-950/80 text-emerald-300 border border-emerald-500/40'
+                ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
             }`}
           >
-            {isActive ? '● LIVE SESSION (IN)' : '✓ COMPLETED (OUT)'}
+            {isActive ? '● LIVE IN-LOUNGE SESSION' : '✓ CLOSED SESSION'}
           </span>
         </div>
 
         {/* ── Hero Info Card ── */}
-        <div className="bg-[#111827]/80 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-6">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {/* Customer */}
             <div>
-              <span className="text-[10px] text-cyan-400 font-extrabold uppercase tracking-widest font-mono">Customer</span>
-              <h1 className="text-2xl font-extrabold text-white mt-1 flex items-center gap-2 font-display tracking-normal">
-                <User className="h-5 w-5 text-cyan-400 shrink-0" />
-                <span className="inline-flex flex-wrap items-center gap-x-2.5">
-                  {session.customerName.split(/\s+/).map((part, idx) => (
-                    <span key={idx}>{part}</span>
-                  ))}
-                </span>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">Customer</span>
+              <h1 className="text-xl font-bold text-slate-900 mt-1 flex items-center gap-2 font-display">
+                <User className="h-5 w-5 text-slate-400 shrink-0" />
+                <span className="truncate">{session.customerName}</span>
               </h1>
               {session.customerPhone && (
-                <p className="text-xs font-mono font-semibold text-slate-400 flex items-center gap-1.5 mt-1 ml-0.5">
-                  <Phone className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                <p className="text-xs font-mono font-semibold text-slate-500 flex items-center gap-1.5 mt-1 ml-0.5">
+                  <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                   <span>{session.customerPhone}</span>
                 </p>
               )}
@@ -1036,28 +1032,28 @@ export default function SessionDetailsPage() {
 
             {/* Overall Status */}
             <div>
-              <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest font-mono">Session Status</span>
-              <p className="text-base font-extrabold text-slate-200 mt-1.5 flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
-                {isActive ? 'IN (Active)' : 'OUT (Completed)'}
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">Session Status</span>
+              <p className="text-sm font-bold text-slate-800 mt-1.5 flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${isActive ? 'bg-blue-500' : 'bg-emerald-500'}`} />
+                {isActive ? 'Active (Playing/Lounge)' : 'Closed & Settled'}
               </p>
             </div>
 
             {/* Elapsed */}
             <div>
-              <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest font-mono">
-                Session Time
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">
+                Duration
               </span>
-              <p className="text-xl font-extrabold text-cyan-400 mt-1 flex items-center gap-1.5 font-mono">
-                <Clock className="h-4 w-4 text-cyan-400 shrink-0" />
+              <p className="text-lg font-black text-slate-900 mt-1 flex items-center gap-1.5 font-mono">
+                <Clock className="h-4 w-4 text-slate-400 shrink-0" />
                 {elapsed}
               </p>
             </div>
 
             {/* Started */}
             <div>
-              <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest font-mono">Started</span>
-              <p className="text-sm font-semibold text-slate-300 mt-1.5 font-mono">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">Timeline</span>
+              <p className="text-xs font-semibold text-slate-700 mt-1.5 font-mono">
                 {new Date(session.startTime).toLocaleString([], {
                   dateStyle: 'short',
                   timeStyle: 'short',
@@ -1074,9 +1070,9 @@ export default function SessionDetailsPage() {
 
         {/* ── Table play action section (active session only) ── */}
         {isActive && (
-          <div className="bg-[#111827]/80 backdrop-blur-xl p-6 rounded-2xl border border-slate-800 shadow-xl space-y-4">
-            <h2 className="text-base font-extrabold text-white flex items-center gap-2 border-b border-slate-800 pb-3 font-display uppercase tracking-wide">
-              <Gamepad2 className="h-5 w-5 text-purple-400" />
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3 font-display uppercase tracking-wide">
+              <Gamepad2 className="h-4 w-4 text-slate-500" />
               Billiard Table / PS4 Manager
             </h2>
 
@@ -1086,8 +1082,8 @@ export default function SessionDetailsPage() {
                 <>
                   {activePlays.length > 0 && (
                     <div className="space-y-3 mb-4">
-                      <p className="text-[11px] font-extrabold uppercase tracking-wider text-purple-300 font-mono flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 font-mono flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
                         Active Game Plays ({activePlays.length})
                       </p>
                       <div className="grid grid-cols-1 gap-3">
@@ -1096,20 +1092,20 @@ export default function SessionDetailsPage() {
                             ? `PS4 (${ap.playerCount} Player${ap.playerCount > 1 ? 's' : ''})`
                             : `${ap.gameType}${ap.table ? ` (Table ${ap.table.number})` : ''}`;
                           return (
-                            <div key={ap.id} className="bg-gradient-to-r from-purple-950/40 via-slate-900 to-slate-900 rounded-2xl p-4 border border-purple-500/40 shadow-md flex flex-wrap items-center justify-between gap-4">
+                            <div key={ap.id} className="bg-slate-50 rounded-xl p-4 border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
                               <div>
-                                <span className="text-[9px] font-extrabold uppercase tracking-wider text-purple-300 bg-purple-950 border border-purple-500/40 px-2 py-0.5 rounded-full">
+                                <span className="text-[9px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full font-mono">
                                   Occupied & Running
                                 </span>
-                                <h4 className="text-sm font-extrabold text-white mt-1 font-display">{label}</h4>
-                                <p className="text-[10px] font-mono text-slate-400 mt-0.5">Started by {ap.createdBy}</p>
+                                <h4 className="text-sm font-bold text-slate-900 mt-1 tracking-tight">{label}</h4>
+                                <p className="text-[10px] font-mono text-slate-500 mt-0.5">Started by {ap.createdBy}</p>
                               </div>
                               <div className="flex items-center gap-4">
                                 <button
                                   type="button"
                                   onClick={() => handleEndTablePlay(ap.id)}
                                   disabled={playLoading}
-                                  className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-xs font-extrabold uppercase tracking-wider rounded-xl text-white shadow-[0_0_12px_rgba(244,63,94,0.3)] flex items-center gap-1.5 transition-all disabled:opacity-50 custom-button"
+                                  className="px-3.5 py-2 bg-rose-600 hover:bg-rose-500 text-xs font-bold uppercase tracking-wider rounded-xl text-white shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
                                 >
                                   <StopCircle className="h-4 w-4" />
                                   Stop Play
@@ -1123,18 +1119,18 @@ export default function SessionDetailsPage() {
                   )}
 
                   {/* Start / Add Table Play Inline Form */}
-                  <form onSubmit={handleStartTablePlay} className="bg-slate-900/90 p-4 rounded-xl border border-slate-800 space-y-3">
+                  <form onSubmit={handleStartTablePlay} className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
                       {/* 1. Game Type */}
                       <div>
-                        <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1 font-mono">Game Type</label>
+                        <label className="block text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-1 font-mono">Game Type</label>
                         <select
                           value={playGameType}
                           onChange={(e) => {
                             setPlayGameType(e.target.value);
                             setPlayTableId('');
                           }}
-                          className="block w-full rounded-xl border border-slate-800 px-3 py-2 text-white bg-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold"
+                          className="block w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 bg-white focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 text-sm font-medium"
                         >
                           <option value="Pool">Pool (₹160/hr)</option>
                           <option value="MidSnooker">Mid Snooker (₹220/hr)</option>
@@ -1145,12 +1141,12 @@ export default function SessionDetailsPage() {
                       {/* 2. Select table or players */}
                       {(playGameType === 'Pool' || playGameType === 'MidSnooker') ? (
                         <div>
-                          <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1 font-mono">Select Table</label>
+                          <label className="block text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-1 font-mono">Select Table</label>
                           <select
                             value={playTableId}
                             required
                             onChange={(e) => setPlayTableId(e.target.value)}
-                            className="block w-full rounded-xl border border-slate-800 px-3 py-2 text-white bg-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold"
+                            className="block w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 bg-white focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 text-sm font-medium"
                           >
                             <option value="">-- Select Table --</option>
                             {availableTables.map((t) => (
@@ -1162,17 +1158,17 @@ export default function SessionDetailsPage() {
                         </div>
                       ) : (
                         <div>
-                          <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1 font-mono">Players</label>
+                          <label className="block text-[10px] font-semibold text-slate-600 uppercase tracking-wider mb-1 font-mono">Players</label>
                           <div className="flex gap-1.5">
                             {['1', '2', '3', '4'].map((n) => (
                               <button
                                 key={n}
                                 type="button"
                                 onClick={() => setPlayPlayerCount(n)}
-                                className={`flex-1 py-2 rounded-xl border text-xs font-extrabold transition-all ${
+                                className={`flex-1 py-2 rounded-xl border text-xs font-bold transition-all ${
                                   playPlayerCount === n
-                                    ? 'border-cyan-500 bg-cyan-500/20 text-cyan-300'
-                                    : 'border-slate-800 bg-slate-900 text-slate-400 hover:border-slate-700'
+                                    ? 'border-slate-900 bg-slate-900 text-white'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
                                 }`}
                               >
                                 {n}
@@ -1185,7 +1181,7 @@ export default function SessionDetailsPage() {
                       {/* 3. Start Time with quick presets */}
                       <div>
                         <div className="flex items-center justify-between mb-1">
-                          <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest font-mono">
+                          <label className="block text-[10px] font-semibold text-slate-600 uppercase tracking-wider font-mono">
                             {showEndField ? 'Start / End Time' : 'Start Time'}
                           </label>
                           <button
@@ -1194,7 +1190,7 @@ export default function SessionDetailsPage() {
                               setShowEndField(!showEndField);
                               if (showEndField) setEndTimeStr('');
                             }}
-                            className="text-[10px] font-mono text-cyan-400 hover:underline"
+                            className="text-[10px] font-mono text-blue-600 hover:underline"
                           >
                             {showEndField ? 'Live Play' : '+ End Time'}
                           </button>
@@ -1204,7 +1200,7 @@ export default function SessionDetailsPage() {
                             type="time"
                             value={startTimeStr}
                             onChange={(e) => setStartTimeStr(e.target.value)}
-                            className="block w-full rounded-xl border border-slate-800 px-3 py-2 text-white bg-slate-900 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-mono font-semibold"
+                            className="block w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 bg-white focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 text-sm font-mono font-medium"
                           />
                           {showEndField && (
                             <input
@@ -1212,7 +1208,7 @@ export default function SessionDetailsPage() {
                               value={endTimeStr}
                               placeholder="End"
                               onChange={(e) => setEndTimeStr(e.target.value)}
-                              className="block w-full rounded-xl border border-purple-500/50 px-3 py-2 text-white bg-slate-900 focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400 text-sm font-mono font-semibold"
+                              className="block w-full rounded-xl border border-slate-200 px-3 py-2 text-slate-900 bg-white focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 text-sm font-mono font-medium"
                             />
                           )}
                         </div>
@@ -1223,7 +1219,7 @@ export default function SessionDetailsPage() {
                         <button
                           type="submit"
                           disabled={playLoading || ((playGameType === 'Pool' || playGameType === 'MidSnooker') && !endTimeStr && availableTables.length === 0)}
-                          className="w-full inline-flex justify-center items-center px-4 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-xs font-extrabold uppercase tracking-wider rounded-xl text-white shadow-[0_0_15px_rgba(0,242,254,0.3)] transition-all disabled:opacity-50 custom-button"
+                          className="w-full inline-flex justify-center items-center px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-xs font-bold uppercase tracking-wider rounded-xl text-white shadow-xs transition-all disabled:opacity-50"
                         >
                           <Play className="h-4 w-4 mr-1.5" />
                           {showEndField && endTimeStr ? 'Add Play' : 'Start Play'}
@@ -1232,7 +1228,7 @@ export default function SessionDetailsPage() {
                     </div>
 
                     {/* Quick chips row for fast 1-click selection */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-800/60 text-[11px] font-mono">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200 text-[11px] font-mono">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-slate-500 text-[10px] uppercase font-bold tracking-wider mr-0.5">Quick Start:</span>
                         <button
@@ -1240,8 +1236,8 @@ export default function SessionDetailsPage() {
                           onClick={() => setStartTimeStr(dateToTimeInput(new Date()))}
                           className={`px-2 py-0.5 rounded-md text-[11px] font-bold border transition-colors ${
                             startTimeStr === dateToTimeInput(new Date())
-                              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                              : 'bg-slate-800/60 text-slate-400 hover:text-white border-slate-700/60'
+                              ? 'bg-slate-900 text-white border-slate-900'
+                              : 'bg-white text-slate-600 hover:text-slate-900 border-slate-200'
                           }`}
                         >
                           Now
@@ -1256,8 +1252,8 @@ export default function SessionDetailsPage() {
                               onClick={() => setStartTimeStr(tStr)}
                               className={`px-2 py-0.5 rounded-md text-[11px] font-bold border transition-colors ${
                                 startTimeStr === tStr
-                                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                                  : 'bg-slate-800/60 text-slate-400 hover:text-white border-slate-700/60'
+                                  ? 'bg-slate-900 text-white border-slate-900'
+                                  : 'bg-white text-slate-600 hover:text-slate-900 border-slate-200'
                               }`}
                             >
                               {label}
@@ -1272,7 +1268,7 @@ export default function SessionDetailsPage() {
                           <button
                             type="button"
                             onClick={() => setEndTimeStr(dateToTimeInput(new Date()))}
-                            className="px-2 py-0.5 rounded-md text-[11px] font-bold border bg-slate-800/60 text-slate-400 hover:text-white border-slate-700/60"
+                            className="px-2 py-0.5 rounded-md text-[11px] font-bold border bg-white text-slate-600 hover:text-slate-900 border-slate-200"
                           >
                             Now
                           </button>
@@ -1287,8 +1283,8 @@ export default function SessionDetailsPage() {
                                 onClick={() => setEndTimeStr(tStr)}
                                 className={`px-2 py-0.5 rounded-md text-[11px] font-bold border transition-colors ${
                                   endTimeStr === tStr
-                                    ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                                    : 'bg-slate-800/60 text-slate-400 hover:text-white border-slate-700/60'
+                                    ? 'bg-slate-900 text-white border-slate-900'
+                                    : 'bg-white text-slate-600 hover:text-slate-900 border-slate-200'
                                 }`}
                               >
                                 {label}
@@ -1307,26 +1303,26 @@ export default function SessionDetailsPage() {
 
         {/* ── Action Bar (active only) ── */}
         {isActive && (
-          <div className="flex flex-wrap items-center justify-between gap-4 bg-[#111827]/80 backdrop-blur-xl p-4 rounded-2xl border border-slate-800 shadow-xl">
-            <h2 className="text-base font-extrabold text-white font-display uppercase tracking-wide">Orders & Payments</h2>
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+            <h2 className="text-base font-bold text-slate-900 font-display uppercase tracking-wide">Orders & Payments</h2>
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowRecordPayment(true)}
-                className="inline-flex items-center px-4 py-2.5 border border-emerald-500/50 text-xs font-extrabold uppercase tracking-wider rounded-xl text-emerald-300 bg-emerald-950/80 hover:bg-emerald-500 hover:text-black transition-all shadow-[0_0_15px_rgba(16,185,129,0.2)] custom-button"
+                className="inline-flex items-center px-4 py-2.5 border border-emerald-200 text-xs font-bold uppercase tracking-wider rounded-xl text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-all shadow-xs"
               >
                 <CreditCard className="h-4 w-4 mr-2" />
                 Advance or Partial Payment
               </button>
               <button
                 onClick={() => setShowAddOrder(true)}
-                className="inline-flex items-center px-4 py-2.5 border border-slate-700 text-xs font-bold uppercase tracking-wider rounded-xl text-slate-300 bg-slate-900 hover:bg-slate-800 hover:text-cyan-300 hover:border-cyan-500/50 transition-all custom-button"
+                className="inline-flex items-center px-4 py-2.5 border border-slate-200 text-xs font-bold uppercase tracking-wider rounded-xl text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all shadow-xs"
               >
-                <ShoppingBag className="h-4 w-4 mr-2 text-cyan-400" />
+                <ShoppingBag className="h-4 w-4 mr-2 text-slate-500" />
                 Add Item
               </button>
               <button
                 onClick={() => setShowCloseSession(true)}
-                className="inline-flex items-center px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-xs font-extrabold uppercase tracking-wider rounded-xl text-white shadow-[0_0_15px_rgba(244,63,94,0.3)] transition-all custom-button"
+                className="inline-flex items-center px-5 py-2.5 bg-rose-600 hover:bg-rose-500 text-xs font-bold uppercase tracking-wider rounded-xl text-white shadow-xs transition-all"
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Close Session
@@ -1341,13 +1337,13 @@ export default function SessionDetailsPage() {
           {/* Left — Categorized Orders */}
           <div className="lg:col-span-2 space-y-4">
             {!hasActivity ? (
-              <div className="bg-[#111827]/80 backdrop-blur-xl rounded-2xl border border-slate-800 p-12 text-center text-slate-500 text-sm shadow-xl">
-                <ShoppingBag className="h-8 w-8 mx-auto mb-3 opacity-40 text-cyan-400" />
+              <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 text-sm shadow-xs">
+                <ShoppingBag className="h-8 w-8 mx-auto mb-3 opacity-40 text-slate-400" />
                 <p className="font-semibold">No activity or orders logged yet.</p>
                 {isActive && (
                   <button
                     onClick={() => setShowAddOrder(true)}
-                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-cyan-400 hover:text-cyan-300"
+                    className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 hover:text-slate-900"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Add an item
@@ -1362,7 +1358,7 @@ export default function SessionDetailsPage() {
                   orders={cigaretteOrders}
                   isActive={isActive}
                   onDelete={handleDeleteOrder}
-                  accentClass="bg-rose-950/40 text-rose-300 border-b border-rose-500/30"
+                  accentClass="bg-rose-50 text-rose-700 border-b border-rose-100"
                 />
                 <CategorySection
                   title="Cold Drinks"
@@ -1370,7 +1366,7 @@ export default function SessionDetailsPage() {
                   orders={coldDrinkOrders}
                   isActive={isActive}
                   onDelete={handleDeleteOrder}
-                  accentClass="bg-cyan-950/40 text-cyan-300 border-b border-cyan-500/30"
+                  accentClass="bg-emerald-50 text-emerald-700 border-b border-emerald-100"
                 />
                 <CategorySection
                   title="Café"
@@ -1378,7 +1374,7 @@ export default function SessionDetailsPage() {
                   orders={cafeOrders}
                   isActive={isActive}
                   onDelete={handleDeleteOrder}
-                  accentClass="bg-amber-950/40 text-amber-300 border-b border-amber-500/30"
+                  accentClass="bg-amber-50 text-amber-700 border-b border-amber-100"
                 />
                 <TablePlaySection
                   tablePlays={session.tablePlays || []}
@@ -1395,16 +1391,16 @@ export default function SessionDetailsPage() {
           <div className="space-y-6">
 
             {/* Billing Summary */}
-            <div className="bg-[#111827]/90 backdrop-blur-2xl rounded-3xl border border-slate-800/90 p-6 shadow-2xl space-y-5">
-              <div className="flex justify-between items-center border-b border-slate-800/80 pb-3">
-                <h3 className="text-sm font-extrabold text-white font-display uppercase tracking-wider flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-cyan-400" />
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 className="text-sm font-bold text-slate-900 font-display uppercase tracking-wider flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-slate-500" />
                   <span>Billing Summary</span>
                 </h3>
-                <span className={`text-[10px] font-mono font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${
+                <span className={`text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full border ${
                   isActive 
-                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30' 
-                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                    : 'bg-slate-100 text-slate-600 border-slate-200'
                 }`}>
                   {isActive ? 'Active Bill' : 'Closed Bill'}
                 </span>
@@ -1413,66 +1409,66 @@ export default function SessionDetailsPage() {
               {/* Itemized Charges */}
               <div className="space-y-2 text-xs">
                 {gameTotal > 0 && (
-                  <div className="flex justify-between items-center text-slate-300">
+                  <div className="flex justify-between items-center text-slate-600">
                     <span className="flex items-center gap-1.5 font-medium">
-                      <Gamepad2 className="h-3.5 w-3.5 text-cyan-400" />
+                      <Gamepad2 className="h-3.5 w-3.5 text-slate-400" />
                       Games & Table Plays
                     </span>
-                    <span className="font-mono font-bold text-white">₹{gameTotal.toFixed(2)}</span>
+                    <span className="font-mono font-bold text-slate-900">₹{gameTotal.toFixed(2)}</span>
                   </div>
                 )}
                 {cigaretteTotal > 0 && (
-                  <div className="flex justify-between items-center text-slate-300">
+                  <div className="flex justify-between items-center text-slate-600">
                     <span className="flex items-center gap-1.5 font-medium">
-                      <Cigarette className="h-3.5 w-3.5 text-rose-400" />
+                      <Cigarette className="h-3.5 w-3.5 text-rose-500" />
                       Cigarettes
                     </span>
-                    <span className="font-mono font-bold text-white">₹{cigaretteTotal.toFixed(2)}</span>
+                    <span className="font-mono font-bold text-slate-900">₹{cigaretteTotal.toFixed(2)}</span>
                   </div>
                 )}
                 {coldDrinkTotal > 0 && (
-                  <div className="flex justify-between items-center text-slate-300">
+                  <div className="flex justify-between items-center text-slate-600">
                     <span className="flex items-center gap-1.5 font-medium">
-                      <GlassWater className="h-3.5 w-3.5 text-cyan-400" />
+                      <GlassWater className="h-3.5 w-3.5 text-blue-500" />
                       Cold Drinks
                     </span>
-                    <span className="font-mono font-bold text-white">₹{coldDrinkTotal.toFixed(2)}</span>
+                    <span className="font-mono font-bold text-slate-900">₹{coldDrinkTotal.toFixed(2)}</span>
                   </div>
                 )}
                 {cafeTotal > 0 && (
-                  <div className="flex justify-between items-center text-slate-300">
+                  <div className="flex justify-between items-center text-slate-600">
                     <span className="flex items-center gap-1.5 font-medium">
-                      <Coffee className="h-3.5 w-3.5 text-amber-400" />
+                      <Coffee className="h-3.5 w-3.5 text-amber-500" />
                       Café Kitchen
                     </span>
-                    <span className="font-mono font-bold text-white">₹{cafeTotal.toFixed(2)}</span>
+                    <span className="font-mono font-bold text-slate-900">₹{cafeTotal.toFixed(2)}</span>
                   </div>
                 )}
                 {(session.customAmount ?? 0) !== 0 && (
-                  <div className={`flex justify-between items-center text-xs font-semibold ${(session.customAmount ?? 0) < 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                  <div className={`flex justify-between items-center text-xs font-semibold ${(session.customAmount ?? 0) < 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
                     <span>{(session.customAmount ?? 0) < 0 ? 'Discount' : 'Extra Surcharge'}</span>
-                    <span className="font-mono">
+                    <span className="font-mono font-bold">
                       {(session.customAmount ?? 0) < 0 ? '−' : '+'}₹{Math.abs(session.customAmount ?? 0).toFixed(2)}
                     </span>
                   </div>
                 )}
                 {priorOutstanding > 0 && (
-                  <div className="flex justify-between items-center text-xs font-semibold text-rose-400">
-                    <span>Prior Outstanding Udhar</span>
+                  <div className="flex justify-between items-center text-xs font-semibold text-rose-600">
+                    <span>Prior Outstanding Balance</span>
                     <span className="font-mono font-bold">+₹{priorOutstanding.toFixed(2)}</span>
                   </div>
                 )}
               </div>
 
               {/* Subtotals (Bill Total & Advance Paid) */}
-              <div className="pt-3 border-t border-slate-800/80 space-y-2 text-xs">
-                <div className="flex justify-between text-slate-400 font-medium">
+              <div className="pt-3 border-t border-slate-100 space-y-2 text-xs">
+                <div className="flex justify-between text-slate-500 font-medium">
                   <span>Gross Bill Total</span>
-                  <span className="font-mono font-bold text-slate-200">₹{totalPayable.toFixed(2)}</span>
+                  <span className="font-mono font-bold text-slate-900">₹{totalPayable.toFixed(2)}</span>
                 </div>
 
                 {amountPaid > 0 && (
-                  <div className="flex justify-between text-emerald-400 font-medium">
+                  <div className="flex justify-between text-emerald-600 font-medium">
                     <span className="flex items-center gap-1.5">
                       <span>💳</span> Advance / Partial Paid
                     </span>
@@ -1484,41 +1480,41 @@ export default function SessionDetailsPage() {
               {/* Hero Settlement Card */}
               {isActive ? (
                 amountPaid > totalPayable ? (
-                  /* Case 1: Advance > Bill (e.g. Advance 500, Bill 30 -> Balance 470) */
-                  <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-2xl p-4 shadow-[0_0_20px_rgba(16,185,129,0.15)] flex justify-between items-center gap-3">
+                  /* Case 1: Advance > Bill */
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 shadow-xs flex justify-between items-center gap-3">
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 font-mono">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 font-mono">
                           Advance Balance
                         </span>
                       </div>
-                      <p className="text-[11px] text-emerald-400/80 font-medium mt-0.5">
+                      <p className="text-[11px] text-emerald-700 font-medium mt-0.5">
                         Credit remaining with lounge
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-black text-emerald-400 font-mono tracking-tight glow-text-emerald">
+                      <div className="text-2xl font-black text-emerald-700 font-mono tracking-tight">
                         ₹{(amountPaid - totalPayable).toFixed(2)}
                       </div>
-                      <span className="text-[9px] font-mono text-emerald-500 font-bold uppercase">
+                      <span className="text-[9px] font-mono text-emerald-600 font-bold uppercase">
                         Due Now: ₹0.00
                       </span>
                     </div>
                   </div>
                 ) : (
-                  /* Case 2: Bill >= Advance (e.g. Bill 100, Partial Paid 40 -> Total Payable: 60) */
-                  <div className="bg-slate-900/90 border border-cyan-500/40 rounded-2xl p-4 shadow-[0_0_20px_rgba(0,242,254,0.1)] flex justify-between items-center gap-3">
+                  /* Case 2: Bill >= Advance */
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-xs flex justify-between items-center gap-3">
                     <div>
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-400 font-mono block">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 font-mono block">
                         Net Payable Due
                       </span>
-                      <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                      <p className="text-[11px] text-slate-600 font-medium mt-0.5">
                         {amountPaid > 0 ? `After ₹${amountPaid.toFixed(0)} payment` : 'Payable at checkout'}
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-black text-white font-mono tracking-tight glow-text-cyan">
+                      <div className="text-2xl font-black text-slate-900 font-mono tracking-tight">
                         ₹{netDue.toFixed(2)}
                       </div>
                     </div>
@@ -1528,14 +1524,14 @@ export default function SessionDetailsPage() {
                 /* Completed Session view */
                 <div className={`p-4 rounded-2xl border flex justify-between items-center ${
                   netOutstanding > 0 
-                    ? 'bg-rose-950/40 border-rose-500/40 text-rose-300' 
-                    : 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300'
+                    ? 'bg-rose-50 border-rose-200 text-rose-700' 
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
                 }`}>
                   <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider font-mono block">
-                      {netOutstanding > 0 ? 'Unpaid Outstanding (Udhar)' : 'Final Status: Fully Settled'}
+                    <span className="text-[10px] font-bold uppercase tracking-wider font-mono block">
+                      {netOutstanding > 0 ? 'Unpaid Outstanding Balance' : 'Final Status: Fully Settled'}
                     </span>
-                    <span className="text-xs opacity-80">
+                    <span className="text-xs opacity-90">
                       {netOutstanding > 0 ? 'Recorded to customer ledger' : 'All dues cleared'}
                     </span>
                   </div>
@@ -1550,13 +1546,13 @@ export default function SessionDetailsPage() {
                   onClick={handlePrintReceipt}
                   disabled={isActive}
                   title={isActive ? "Close the session first to print the final receipt" : "Print Receipt"}
-                  className={`inline-flex justify-center items-center px-3.5 py-2.5 border text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all ${
+                  className={`inline-flex justify-center items-center px-3.5 py-2.5 border text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs ${
                     isActive
-                      ? 'border-slate-800 text-slate-600 bg-slate-900/50 cursor-not-allowed'
-                      : 'border-slate-700 text-slate-200 bg-slate-900 hover:bg-slate-800 hover:border-cyan-500/50 custom-button'
+                      ? 'border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed'
+                      : 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50'
                   }`}
                 >
-                  <Printer className={`h-4 w-4 mr-1.5 ${isActive ? 'text-slate-600' : 'text-cyan-400'}`} />
+                  <Printer className={`h-4 w-4 mr-1.5 ${isActive ? 'text-slate-400' : 'text-slate-500'}`} />
                   {isActive ? 'Print (Closed)' : 'Print Receipt'}
                 </button>
 
@@ -1564,16 +1560,16 @@ export default function SessionDetailsPage() {
                   onClick={handleShareWhatsApp}
                   disabled={isActive || waLoading}
                   title={isActive ? "Close the session first to send receipt via WhatsApp" : `Send Receipt directly to ${session.customerPhone || 'Customer'}`}
-                  className={`inline-flex justify-center items-center px-3.5 py-2.5 border text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all ${
+                  className={`inline-flex justify-center items-center px-3.5 py-2.5 border text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-xs ${
                     isActive
-                      ? 'border-slate-800 text-slate-600 bg-slate-900/50 cursor-not-allowed'
-                      : 'border-emerald-500/40 text-emerald-300 bg-emerald-950/80 hover:bg-emerald-500 hover:text-black shadow-[0_0_12px_rgba(16,185,129,0.2)] custom-button'
+                      ? 'border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed'
+                      : 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
                   }`}
                 >
                   {waLoading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-emerald-400 border-t-transparent mr-1.5" />
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-emerald-600 border-t-transparent mr-1.5" />
                   ) : (
-                    <MessageCircle className={`h-4 w-4 mr-1.5 ${isActive ? 'text-slate-600' : 'text-emerald-400'}`} />
+                    <MessageCircle className={`h-4 w-4 mr-1.5 ${isActive ? 'text-slate-400' : 'text-emerald-600'}`} />
                   )}
                   {waLoading ? 'Sending...' : 'WhatsApp'}
                 </button>
@@ -1583,8 +1579,8 @@ export default function SessionDetailsPage() {
               {waStatus && (
                 <div className={`p-3 rounded-xl text-xs font-mono font-bold space-y-1 transition-all ${
                   waStatus.type === 'success'
-                    ? 'bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.2)]'
-                    : 'bg-rose-950/90 text-rose-300 border border-rose-500/50'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs'
+                    : 'bg-rose-50 text-rose-800 border border-rose-200 shadow-xs'
                 }`}>
                   <p className="flex items-center gap-1.5">
                     <span>{waStatus.type === 'success' ? '🚀' : '⚠️'}</span>
@@ -1597,10 +1593,10 @@ export default function SessionDetailsPage() {
 
             {/* Payments Log */}
             {session.payments && session.payments.length > 0 && (
-              <div className="bg-[#111827]/80 backdrop-blur-xl rounded-2xl border border-slate-800 p-6 shadow-xl space-y-3">
-                <h3 className="text-base font-extrabold text-white flex items-center justify-between font-display">
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-3">
+                <h3 className="text-base font-bold text-slate-900 flex items-center justify-between font-display">
                   <span>Payments Received</span>
-                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-slate-900 text-emerald-400 border border-slate-800">
+                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
                     {session.payments.length} txns
                   </span>
                 </h3>
@@ -1608,15 +1604,15 @@ export default function SessionDetailsPage() {
                   {session.payments.map((p) => (
                     <div
                       key={p.id}
-                      className="flex justify-between items-center p-3 bg-emerald-950/40 rounded-xl border border-emerald-500/30 text-xs"
+                      className="flex justify-between items-center p-3 bg-emerald-50/60 rounded-xl border border-emerald-100 text-xs"
                     >
                       <div>
-                        <p className="font-bold text-white">{p.method} Payment</p>
-                        <p className="text-slate-400 mt-0.5 font-mono">
+                        <p className="font-bold text-slate-900">{p.method} Payment</p>
+                        <p className="text-slate-500 mt-0.5 font-mono">
                           {new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
-                      <span className="font-mono font-bold text-emerald-400">+₹{p.amount.toFixed(2)}</span>
+                      <span className="font-mono font-bold text-emerald-700">+₹{p.amount.toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
@@ -1666,34 +1662,34 @@ export default function SessionDetailsPage() {
 
       {/* Stop Table Play Modal (Fast time-only input) */}
       {stopPlayTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-          <div className="bg-[#111827] rounded-2xl border border-slate-800 w-full max-w-sm shadow-2xl p-5 space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
-              <h3 className="text-sm font-extrabold text-white uppercase tracking-wide flex items-center gap-1.5 font-display">
-                <StopCircle className="h-4 w-4 text-rose-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-sm shadow-xl p-5 space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wide flex items-center gap-1.5 font-display">
+                <StopCircle className="h-4 w-4 text-rose-500" />
                 Stop Play
               </h3>
               <button
                 type="button"
                 onClick={() => setStopPlayTarget(null)}
-                className="text-slate-500 hover:text-slate-300 text-xs font-bold"
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
               >
                 ✕
               </button>
             </div>
 
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800 text-xs font-mono space-y-1">
+            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs font-mono space-y-1">
               <div className="flex justify-between">
-                <span className="text-slate-400">Game:</span>
-                <span className="text-white font-bold">
+                <span className="text-slate-500">Game:</span>
+                <span className="text-slate-900 font-bold">
                   {stopPlayTarget.gameType === 'PS4'
                     ? `PS4 (${stopPlayTarget.playerCount}p)`
                     : `${stopPlayTarget.gameType}${stopPlayTarget.table ? ` (T${stopPlayTarget.table.number})` : ''}`}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Started:</span>
-                <span className="text-emerald-400 font-bold">
+                <span className="text-slate-500">Started:</span>
+                <span className="text-emerald-700 font-bold">
                   {new Date(stopPlayTarget.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
@@ -1701,14 +1697,14 @@ export default function SessionDetailsPage() {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest font-mono">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">
                   End Time
                 </label>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => setStopPlayTimeStr(dateToTimeInput(new Date()))}
-                    className="text-[10px] font-mono text-cyan-400 hover:underline px-1"
+                    className="text-[10px] font-mono text-blue-600 hover:underline px-1"
                   >
                     Now
                   </button>
@@ -1719,7 +1715,7 @@ export default function SessionDetailsPage() {
                         key={m}
                         type="button"
                         onClick={() => setStopPlayTimeStr(t)}
-                        className="text-[10px] font-mono text-slate-400 hover:text-white px-1"
+                        className="text-[10px] font-mono text-slate-500 hover:text-slate-900 px-1"
                       >
                         {m}m
                       </button>
@@ -1731,7 +1727,7 @@ export default function SessionDetailsPage() {
                 type="time"
                 value={stopPlayTimeStr}
                 onChange={(e) => setStopPlayTimeStr(e.target.value)}
-                className="block w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-white text-xs font-mono font-semibold"
+                className="block w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 text-xs font-mono font-semibold focus:border-slate-500 focus:outline-none"
               />
             </div>
 
@@ -1741,7 +1737,7 @@ export default function SessionDetailsPage() {
               const e = timeToDate(stopPlayTimeStr).getTime();
               if (e <= s) {
                 return (
-                  <p className="text-[11px] font-mono text-rose-400">End time must be after start time</p>
+                  <p className="text-[11px] font-mono text-rose-600">End time must be after start time</p>
                 );
               }
               const diffMs = e - s;
@@ -1753,18 +1749,18 @@ export default function SessionDetailsPage() {
                 : rate * hrs);
 
               return (
-                <div className="flex justify-between items-center text-xs font-mono bg-rose-950/20 border border-rose-500/20 rounded-lg p-2.5">
-                  <span className="text-slate-300">Duration: <strong className="text-white">{mins}m</strong></span>
-                  <span className="text-emerald-400 font-extrabold text-sm">₹{cost}</span>
+                <div className="flex justify-between items-center text-xs font-mono bg-rose-50 border border-rose-200 rounded-lg p-2.5">
+                  <span className="text-slate-600">Duration: <strong className="text-slate-900">{mins}m</strong></span>
+                  <span className="text-emerald-700 font-bold text-sm">₹{cost}</span>
                 </div>
               );
             })()}
 
-            <div className="flex justify-end gap-2 pt-1 border-t border-slate-800">
+            <div className="flex justify-end gap-2 pt-1 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setStopPlayTarget(null)}
-                className="px-3.5 py-1.5 border border-slate-800 text-xs font-bold rounded-xl text-slate-400 hover:bg-slate-800 transition-all"
+                className="px-3.5 py-1.5 border border-slate-200 text-xs font-bold rounded-xl text-slate-600 hover:bg-slate-50 transition-all"
               >
                 Cancel
               </button>
@@ -1772,7 +1768,7 @@ export default function SessionDetailsPage() {
                 type="button"
                 disabled={playLoading || (timeToDate(stopPlayTimeStr).getTime() <= new Date(stopPlayTarget.startTime).getTime())}
                 onClick={() => confirmEndTablePlay()}
-                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-xs font-extrabold uppercase tracking-wider rounded-xl text-white shadow-md transition-all disabled:opacity-50"
+                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-xs font-bold uppercase tracking-wider rounded-xl text-white shadow-xs transition-all disabled:opacity-50"
               >
                 Stop Play
               </button>

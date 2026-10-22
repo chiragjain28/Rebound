@@ -13,13 +13,24 @@ const websocket_1 = require("./websocket");
 // Route imports
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const dashboard_routes_1 = __importDefault(require("./routes/dashboard.routes"));
+const visit_routes_1 = __importDefault(require("./routes/visit.routes"));
 const session_routes_1 = __importDefault(require("./routes/session.routes"));
 const menu_routes_1 = __importDefault(require("./routes/menu.routes"));
 const order_routes_1 = __importDefault(require("./routes/order.routes"));
 const payment_routes_1 = __importDefault(require("./routes/payment.routes"));
 const tableBooking_routes_1 = __importDefault(require("./routes/tableBooking.routes"));
+const credit_routes_1 = __importDefault(require("./routes/credit.routes"));
 const udhar_routes_1 = __importDefault(require("./routes/udhar.routes"));
 const table_routes_1 = __importDefault(require("./routes/table.routes"));
+const customer_routes_1 = __importDefault(require("./routes/customer.routes"));
+// Load .env.local first (dev overrides), then fallback to .env (prod defaults)
+dotenv_1.default.config({ path: '.env.local', override: true });
+if (process.env.DATABASE_URL?.includes('<your-dev-project>')) {
+    delete process.env.DATABASE_URL;
+}
+if (process.env.DIRECT_URL?.includes('<your-dev-project>')) {
+    delete process.env.DIRECT_URL;
+}
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const server = http_1.default.createServer(app);
@@ -36,18 +47,43 @@ exports.prisma = prismaClient.$extends({
         },
     },
 });
-app.use((0, cors_1.default)());
+// CORS — allow frontend origin from env var (set on Render)
+const allowedOrigins = [
+    'https://rebound-taupe-theta.vercel.app', // production frontend
+    process.env.FRONTEND_URL, // from Render env var
+].filter(Boolean);
+app.use((0, cors_1.default)({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin) {
+            return callback(null, true);
+        }
+        // Allow any localhost port for local development
+        if (/^http:\/\/localhost:\d+$/.test(origin)) {
+            return callback(null, true);
+        }
+        // Allow known production origins
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+}));
 app.use(express_1.default.json());
 // Routes setup
 app.use('/api/auth', auth_routes_1.default);
 app.use('/api/dashboard', dashboard_routes_1.default);
+app.use('/api/visits', visit_routes_1.default);
 app.use('/api/sessions', session_routes_1.default);
 app.use('/api/menu', menu_routes_1.default);
 app.use('/api/orders', order_routes_1.default);
 app.use('/api/payments', payment_routes_1.default);
 app.use('/api/bookings', tableBooking_routes_1.default);
+app.use('/api/credits', credit_routes_1.default);
 app.use('/api/udhar', udhar_routes_1.default);
 app.use('/api/tables', table_routes_1.default);
+app.use('/api/customers', customer_routes_1.default);
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'healthy', time: new Date() });

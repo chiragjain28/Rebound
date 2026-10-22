@@ -4,61 +4,10 @@ import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
-// Helper: sync existing unique customers from Sessions into Customer table if empty
-async function ensureCustomersSynced() {
+// Helper: search customers handler
+async function handleCustomerSearch(req: any, res: any) {
   try {
-    const count = await prisma.customer.count();
-    if (count === 0) {
-      // Find all unique customers with phone numbers from past sessions
-      const sessions = await prisma.session.findMany({
-        where: {
-          customerPhone: { not: null },
-          customerName: { not: 'Guest' }
-        },
-        select: {
-          customerName: true,
-          customerPhone: true,
-          startTime: true
-        },
-        orderBy: { startTime: 'desc' }
-      });
-
-      const uniquePhoneMap = new Map<string, { name: string; phone: string }>();
-      for (const s of sessions) {
-        const phone = s.customerPhone ? s.customerPhone.trim() : '';
-        const name = s.customerName ? s.customerName.trim() : '';
-        if (phone && name && !uniquePhoneMap.has(phone)) {
-          uniquePhoneMap.set(phone, { name, phone });
-        }
-      }
-
-      for (const [phone, item] of uniquePhoneMap.entries()) {
-        const parts = item.name.split(' ');
-        const firstName = parts[0] || item.name;
-        const lastName = parts.slice(1).join(' ') || '';
-        await prisma.customer.upsert({
-          where: { phone },
-          update: {},
-          create: {
-            firstName,
-            lastName,
-            name: item.name,
-            phone
-          }
-        });
-      }
-    }
-  } catch (err) {
-    console.error('Customer initial sync warning:', err);
-  }
-}
-
-// 1. GET /api/customers - Search customers by name, surname, or phone
-router.get('/', authenticateToken, async (req, res) => {
-  try {
-    await ensureCustomersSynced();
-
-    const search = ((req.query.search as string) || '').trim();
+    const search = (((req.query.search || req.query.q) as string) || '').trim();
 
     let whereClause: any = {};
     if (search) {
@@ -85,31 +34,317 @@ router.get('/', authenticateToken, async (req, res) => {
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
+}
+
+// 1. GET /api/customers - Search customers by name, surname, or phone
+router.get('/', authenticateToken, handleCustomerSearch);
+router.get('/search', authenticateToken, handleCustomerSearch);
+
+// Helper to get local date string YYYY-MM-DD
+const getLocalDateStr = (d: Date | string | number = new Date()): string => {
+  const date = new Date(d);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// 2. GET /api/customers/:phone/history - Comprehensive day-wise itemized visit & credit audit history
+router.get('/:phone/history', authenticateToken, async (req, res) => {
+  try {
+    const rawParam = decodeURIComponent(req.params.phone.trim());
+    let customer = await prisma.customer.findFirst({
+      where: {
+        OR: [
+          { phone: rawParam },
+          { name: { equals: rawParam, mode: 'insensitive' } },
+          ...(!isNaN(Number(rawParam)) && Number(rawParam) > 0 && Number(rawParam) <= 2147483647 && rawParam.length <= 8 ? [{ id: Number(rawParam) }] : [])
+        ]
+      }
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    const customerId = customer.id;
+
+    // Fetch all visits (active & completed) for this customer
+    const visits = await prisma.visit.findMany({
+      where: { customerId },
+      include: {
+        orders: {
+          include: {
+            menuItem: {
+              select: { id: true, name: true, category: true, price: true }
+            }
+          },
+          orderBy: { createdAt: 'asc' }
+        },
+        tablePlays: {
+          include: {
+            table: {
+              select: { id: true, number: true, gameType: true }
+            }
+          },
+          orderBy: { startTime: 'asc' }
+        },
+        payments: {
+          orderBy: { createdAt: 'asc' }
+        },
+        creditRecords: {
+          orderBy: { createdAt: 'asc' }
+        }
+      },
+      orderBy: { startTime: 'desc' }
+    });
+
+    // Fetch all unpaid credit records for customer
+    const unpaidCredits = await prisma.creditRecord.findMany({
+      where: {
+        customerId,
+        status: 'unpaid'
+      },
+      include: {
+        visit: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const currentCreditDue = unpaidCredits.reduce((sum, c) => sum + (c.amount - c.settledAmount), 0);
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const previousUnpaidCredits = unpaidCredits.filter(c => new Date(c.createdAt) < startOfToday);
+    const previousCreditDue = previousUnpaidCredits.reduce((sum, c) => sum + (c.amount - c.settledAmount), 0);
+
+    const todayStr = getLocalDateStr(new Date());
+
+    // Group visits by local date of startTime (e.g. 23:30 on 19th Oct stays on 19th Oct)
+    const daysMap = new Map<string, {
+      date: string;
+      formattedDate: string;
+      isToday: boolean;
+      totalDayBill: number;
+      totalDayPaid: number;
+      dayCreditAdded: number;
+      dayUdharAdded: number;
+      visits: any[];
+    }>();
+
+    let totalLifetimeBill = 0;
+    let totalLifetimePaid = 0;
+
+    for (const v of visits) {
+      // Calculate live table play cost for any in-progress plays
+      const calculatedTablePlays = v.tablePlays.map(tp => {
+        let cost = tp.cost;
+        if (!tp.endTime) {
+          const elapsedHours = Math.max(0, (Date.now() - new Date(tp.startTime).getTime()) / (1000 * 60 * 60));
+          const rate = (tp.table?.gameType === 'MidSnooker' ? 220 : 160);
+          cost = tp.gameType === 'PS4' ? elapsedHours * 80 * (tp.playerCount || 1) : elapsedHours * rate;
+          cost = Math.round(cost * 100) / 100;
+        }
+        return {
+          id: tp.id,
+          gameType: tp.gameType,
+          tableName: tp.table ? `${tp.table.gameType} Table ${tp.table.number}` : (tp.gameType === 'PS4' ? 'PS4 Station' : tp.gameType),
+          playerCount: tp.playerCount,
+          startTime: tp.startTime,
+          endTime: tp.endTime,
+          cost,
+          createdBy: tp.createdBy
+        };
+      });
+
+      let visitTablesCost = v.tablesTotal;
+      let visitTotal = v.visitTotal;
+      if (v.status === 'active') {
+        visitTablesCost = calculatedTablePlays.reduce((sum, p) => sum + p.cost, 0);
+        visitTotal = Math.round((v.itemsTotal + visitTablesCost + v.customAmount) * 100) / 100;
+      }
+
+      totalLifetimeBill += visitTotal;
+      const vPaid = v.payments.reduce((sum, p) => sum + p.amount, 0);
+      totalLifetimePaid += vPaid;
+
+      const dateKey = getLocalDateStr(v.startTime);
+      const dateObj = new Date(v.startTime);
+      const formattedDate = dateObj.toLocaleDateString('en-IN', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+
+      if (!daysMap.has(dateKey)) {
+        daysMap.set(dateKey, {
+          date: dateKey,
+          formattedDate,
+          isToday: dateKey === todayStr,
+          totalDayBill: 0,
+          totalDayPaid: 0,
+          dayCreditAdded: 0,
+          dayUdharAdded: 0,
+          visits: []
+        });
+      }
+
+      const dayGroup = daysMap.get(dateKey)!;
+      dayGroup.totalDayBill += visitTotal;
+      dayGroup.totalDayPaid += vPaid;
+
+      const vCreditAdded = v.creditRecords.filter(c => c.status === 'unpaid').reduce((sum, c) => sum + (c.amount - c.settledAmount), 0);
+      dayGroup.dayCreditAdded += vCreditAdded;
+      dayGroup.dayUdharAdded += vCreditAdded;
+
+      dayGroup.visits.push({
+        id: v.id,
+        status: v.status,
+        startTime: v.startTime,
+        endTime: v.endTime,
+        totalBill: visitTotal,
+        visitTotal,
+        gameCost: visitTablesCost,
+        tablesTotal: visitTablesCost,
+        menuCost: v.itemsTotal,
+        itemsTotal: v.itemsTotal,
+        customAmount: v.customAmount,
+        paidAmount: vPaid,
+        balanceDue: Math.max(0, visitTotal - vPaid),
+        paymentStatus: v.paymentStatus,
+        tablePlays: calculatedTablePlays,
+        orders: v.orders.map(o => ({
+          id: o.id,
+          name: o.menuItem?.name || 'Item',
+          category: o.menuItem?.category || 'General',
+          price: o.price,
+          quantity: o.quantity,
+          total: o.price * o.quantity,
+          createdAt: o.createdAt
+        })),
+        payments: v.payments.map(p => ({
+          id: p.id,
+          amount: p.amount,
+          method: p.method,
+          type: p.type,
+          createdAt: p.createdAt
+        })),
+        creditRecords: v.creditRecords.map(c => ({
+          id: c.id,
+          amount: c.amount,
+          settledAmount: c.settledAmount,
+          due: c.amount - c.settledAmount,
+          status: c.status,
+          notes: c.notes,
+          createdAt: c.createdAt
+        })),
+        udhars: v.creditRecords.map(c => ({
+          id: c.id,
+          amount: c.amount,
+          status: c.status,
+          createdAt: c.createdAt
+        }))
+      });
+    }
+
+    // Sort visits within each day chronologically
+    for (const day of daysMap.values()) {
+      day.visits.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+    }
+
+    // Build structured breakdown of unpaid credits
+    const unpaidCreditBreakdown = unpaidCredits.map(c => {
+      const v = c.visit;
+      const dateKey = v ? getLocalDateStr(v.startTime) : getLocalDateStr(c.createdAt);
+      const day = daysMap.get(dateKey);
+      const visitIdx = v && day ? day.visits.findIndex(visit => visit.id === v.id) : -1;
+      const visitNumber = visitIdx >= 0 ? visitIdx + 1 : null;
+
+      const dateObj = new Date(v ? v.startTime : c.createdAt);
+      const formattedDate = dateObj.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+      const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      return {
+        id: c.id,
+        amount: c.amount,
+        settledAmount: c.settledAmount,
+        due: c.amount - c.settledAmount,
+        date: dateKey,
+        formattedDate,
+        timeStr,
+        visitId: v?.id || c.visitId || null,
+        sessionId: v?.id || c.visitId || null,
+        visitNumber,
+        isManual: !v,
+        notes: c.notes || (c.visitId ? `Visit #${visitNumber}` : 'Credit Balance'),
+        visitTotal: v?.visitTotal || null,
+        visitStatus: v?.status || null
+      };
+    });
+
+    const timeline = Array.from(daysMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+
+    res.json({
+      customer: {
+        id: customer.id,
+        name: customer.name,
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        phone: customer.phone,
+        memberSince: customer.createdAt,
+        totalVisits: visits.length,
+        lifetimeSpend: totalLifetimeBill,
+        lifetimePaid: totalLifetimePaid,
+        currentCreditDue,
+        currentUdharDue: currentCreditDue,
+        previousCreditDue,
+        previousUdharDue: previousCreditDue,
+        unpaidCreditsBreakdown: unpaidCreditBreakdown,
+        unpaidUdharsBreakdown: unpaidCreditBreakdown
+      },
+      timeline
+    });
+  } catch (error: any) {
+    console.error('Error in customer history:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
-// 2. GET /api/customers/:phone/payments - Get last 3-4 payments with dates for a customer
+// 3. GET /api/customers/:phone/payments - Get last payments for customer
 router.get('/:phone/payments', authenticateToken, async (req, res) => {
   try {
     const phone = req.params.phone.trim();
+    const customer = await prisma.customer.findFirst({
+      where: {
+        OR: [
+          { phone },
+          { name: { equals: phone, mode: 'insensitive' } }
+        ]
+      }
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
 
     const payments = await prisma.payment.findMany({
-      where: {
-        session: {
-          customerPhone: phone
-        }
-      },
+      where: { customerId: customer.id },
       include: {
-        session: {
+        visit: {
           select: {
             id: true,
-            customerName: true,
             status: true,
-            totalBill: true
+            visitTotal: true
           }
         }
       },
       orderBy: { createdAt: 'desc' },
-      take: 4
+      take: 10
     });
 
     res.json(payments);
@@ -118,7 +353,7 @@ router.get('/:phone/payments', authenticateToken, async (req, res) => {
   }
 });
 
-// 3. POST /api/customers - Add a new customer
+// 4. POST /api/customers - Add a new customer
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const { firstName, lastName, phone } = req.body;
@@ -158,7 +393,7 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// 4. PUT /api/customers/:phone - Edit First Name and Surname (Phone is strictly immutable)
+// 5. PUT /api/customers/:phone - Edit First Name and Surname (Phone is strictly immutable)
 router.put('/:phone', authenticateToken, async (req, res) => {
   try {
     const phone = req.params.phone.trim();
@@ -179,9 +414,7 @@ router.put('/:phone', authenticateToken, async (req, res) => {
     const cleanFirst = firstName.trim();
     const cleanLast = (lastName || '').trim();
     const newFullName = (cleanFirst + ' ' + cleanLast).trim();
-    const oldName = existing.name;
 
-    // 1. Update Customer record
     const updatedCustomer = await prisma.customer.update({
       where: { phone },
       data: {
@@ -191,109 +424,13 @@ router.put('/:phone', authenticateToken, async (req, res) => {
       }
     });
 
-    // 2. Cascade updated name to past sessions for this phone
-    await prisma.session.updateMany({
-      where: { customerPhone: phone },
-      data: { customerName: newFullName }
-    });
-
-    // 3. Cascade updated name to udhars matching oldName
-    if (oldName && oldName !== newFullName) {
-      await prisma.udhar.updateMany({
-        where: { customerName: { equals: oldName, mode: 'insensitive' } },
-        data: { customerName: newFullName }
-      });
-    }
-
     res.json(updatedCustomer);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Helper: Check customer deletion eligibility
-async function checkCustomerDeletionEligibility(phone: string, customerName: string) {
-  const activeSession = await prisma.session.findFirst({
-    where: {
-      status: 'active',
-      OR: [
-        { customerPhone: phone },
-        { customerName: { equals: customerName, mode: 'insensitive' } }
-      ]
-    },
-    include: {
-      table: {
-        select: { id: true, number: true, gameType: true }
-      }
-    }
-  });
-
-  const unpaidUdhars = await prisma.udhar.findMany({
-    where: {
-      status: 'unpaid',
-      OR: [
-        { customerName: { equals: customerName, mode: 'insensitive' } },
-        { session: { customerPhone: phone } }
-      ]
-    },
-    select: {
-      id: true,
-      amount: true,
-      createdAt: true
-    }
-  });
-
-  const totalUdhar = unpaidUdhars.reduce((sum, u) => sum + (u.amount || 0), 0);
-  const hasActiveSession = !!activeSession;
-  const hasUdhar = unpaidUdhars.length > 0;
-  const canDelete = !hasActiveSession && !hasUdhar;
-
-  const reasons: string[] = [];
-  let tableName = 'Active Table';
-  if (activeSession) {
-    if (activeSession.table) {
-      tableName = `${activeSession.table.gameType} #${activeSession.table.number}`;
-    }
-    reasons.push(`Active session in progress on ${tableName}`);
-  }
-  if (hasUdhar) {
-    reasons.push(`Unpaid udhar of ₹${totalUdhar}`);
-  }
-
-  return {
-    canDelete,
-    hasActiveSession,
-    activeSession: activeSession ? {
-      id: activeSession.id,
-      tableName
-    } : null,
-    hasUdhar,
-    totalUdhar,
-    reasons,
-    reasonText: reasons.join(' & ')
-  };
-}
-
-// 5. GET /api/customers/:phone/eligibility - Check if customer can be deleted
-router.get('/:phone/eligibility', authenticateToken, async (req, res) => {
-  try {
-    const phone = req.params.phone.trim();
-    const existing = await prisma.customer.findUnique({
-      where: { phone }
-    });
-
-    if (!existing) {
-      return res.status(404).json({ error: 'Customer not found' });
-    }
-
-    const eligibility = await checkCustomerDeletionEligibility(phone, existing.name);
-    res.json(eligibility);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 6. DELETE /api/customers/:phone - Delete customer profile from DB (Only when no active session & no udhar)
+// 6. DELETE /api/customers/:phone - Delete customer profile from DB
 router.delete('/:phone', authenticateToken, async (req, res) => {
   try {
     const phone = req.params.phone.trim();
@@ -306,17 +443,29 @@ router.delete('/:phone', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Customer not found' });
     }
 
-    // Enforce condition: can ONLY be deleted if session is not active and has no udhar
-    const eligibility = await checkCustomerDeletionEligibility(phone, existing.name);
-    if (!eligibility.canDelete) {
+    // Check active visit
+    const activeVisit = await prisma.visit.findFirst({
+      where: { customerId: existing.id, status: 'active' }
+    });
+
+    const unpaidCredit = await prisma.creditRecord.findFirst({
+      where: { customerId: existing.id, status: 'unpaid' }
+    });
+
+    if (activeVisit) {
       return res.status(400).json({
-        error: `Cannot delete customer: ${eligibility.reasonText}. Please complete the active session and settle all udhars before deleting.`
+        error: `Cannot delete customer: An active visit is currently in progress. Please complete the visit first.`
       });
     }
 
-    // Delete customer profile from Customer table (financial payments and past sessions remain safe)
+    if (unpaidCredit) {
+      return res.status(400).json({
+        error: `Cannot delete customer: Customer has an outstanding credit balance of ₹${existing.currentCreditDue}. Settle all credit records before deleting.`
+      });
+    }
+
     await prisma.customer.delete({
-      where: { phone }
+      where: { id: existing.id }
     });
 
     res.json({ message: `Customer "${existing.name}" deleted successfully` });

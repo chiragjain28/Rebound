@@ -8,6 +8,7 @@ export interface Table {
   id: number;
   number: number;
   gameType?: string;
+  ratePerHour?: number;
   status: string; // 'available', 'occupied'
 }
 

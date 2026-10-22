@@ -247,31 +247,31 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
   const getCategoryBadgeClass = (cat: string) => {
     switch (cat) {
       case 'Cigarettes':
-        return 'bg-rose-950/60 text-rose-300 border-rose-500/40';
+        return 'bg-rose-50 text-rose-700 border-rose-200';
       case 'Cold Drinks':
-        return 'bg-cyan-950/60 text-cyan-300 border-cyan-500/40';
+        return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'Cafe':
       default:
-        return 'bg-amber-950/60 text-amber-300 border-amber-500/40';
+        return 'bg-amber-50 text-amber-700 border-amber-200';
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in">
+      <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex justify-between items-center p-5 border-b border-slate-800 bg-slate-900/60 shrink-0">
+        <div className="flex justify-between items-center p-5 border-b border-slate-100 bg-slate-50 shrink-0">
           <div>
-            <h2 className="text-lg font-extrabold text-white font-display uppercase tracking-wide">
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">
               Menu & Inventory
             </h2>
-            <p className="text-xs text-slate-400 font-medium mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Add new items or edit names and pricing
             </p>
           </div>
           <button
             onClick={handleClose}
-            className="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-full transition-colors border border-slate-700"
+            className="text-slate-400 hover:text-slate-600 bg-white p-1.5 rounded-lg transition-colors border border-slate-200"
           >
             <X className="h-4 w-4" />
           </button>
@@ -280,23 +280,23 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
         {/* Content */}
         <div className="p-6 overflow-y-auto flex-1 space-y-5">
           {/* 3 Tabs */}
-          <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800 gap-1">
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1">
             <button
               onClick={() => { setActiveTab('manual'); setError(''); }}
-              className={`flex-1 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all duration-200 ${
+              className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all duration-200 ${
                 activeTab === 'manual'
-                  ? 'bg-cyan-500 text-black shadow-[0_0_10px_rgba(0,242,254,0.4)]'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-slate-900 border border-slate-200 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               + Single Item
             </button>
             <button
               onClick={() => { setActiveTab('manage'); setError(''); }}
-              className={`flex-1 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 ${
+              className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all duration-200 flex items-center justify-center gap-1.5 ${
                 activeTab === 'manage'
-                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-[0_0_10px_rgba(0,242,254,0.3)]'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-slate-900 border border-slate-200 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               <Search className="h-3 w-3" />
@@ -304,10 +304,10 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
             </button>
             <button
               onClick={() => { setActiveTab('bulk'); setError(''); }}
-              className={`flex-1 py-2 text-xs font-extrabold uppercase tracking-wider rounded-lg transition-all duration-200 ${
+              className={`flex-1 py-2 text-xs font-semibold uppercase tracking-wider rounded-lg transition-all duration-200 ${
                 activeTab === 'bulk'
-                  ? 'bg-purple-600 text-white shadow-[0_0_10px_rgba(168,85,247,0.4)]'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white text-slate-900 border border-slate-200 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               Bulk CSV
@@ -316,16 +316,16 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
 
           {/* Success Banner */}
           {successMsg && (
-            <div className="bg-emerald-950/80 text-emerald-300 text-xs font-bold p-3 rounded-xl border border-emerald-500/50 flex items-center gap-2 animate-in fade-in">
-              <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+            <div className="bg-emerald-50 text-emerald-800 text-xs font-medium p-3 rounded-xl border border-emerald-200 flex items-center gap-2 animate-in fade-in">
+              <Check className="h-4 w-4 text-emerald-600 shrink-0" />
               <span>{successMsg}</span>
             </div>
           )}
 
           {/* Error Banner */}
           {error && (
-            <div className="bg-rose-950/60 text-rose-300 text-xs font-bold p-3 rounded-xl border border-rose-500/40 flex items-start gap-2 animate-in fade-in">
-              <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+            <div className="bg-rose-50 text-rose-800 text-xs font-medium p-3 rounded-xl border border-rose-200 flex items-start gap-2 animate-in fade-in">
+              <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
@@ -334,23 +334,23 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
           {activeTab === 'manual' && (
             <form onSubmit={handleManualSubmit} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-extrabold text-slate-300 mb-1.5 uppercase tracking-widest font-mono">
-                  Item Name <span className="text-cyan-400">*</span>
+                <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase tracking-wider font-mono">
+                  Item Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="block w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold transition-all"
+                  className="block w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 text-sm font-medium transition-all"
                   placeholder="e.g. Red Bull"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-300 mb-1.5 uppercase tracking-widest font-mono">
-                    Price (₹) <span className="text-cyan-400">*</span>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase tracking-wider font-mono">
+                    Price (₹) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="number"
@@ -359,19 +359,19 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                     required
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    className="block w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-mono font-semibold transition-all"
+                    className="block w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 text-sm font-mono font-medium transition-all"
                     placeholder="120"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-extrabold text-slate-300 mb-1.5 uppercase tracking-widest font-mono">
-                    Category <span className="text-cyan-400">*</span>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-1.5 uppercase tracking-wider font-mono">
+                    Category <span className="text-rose-500">*</span>
                   </label>
                   <select
                     required
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="block w-full px-3.5 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-white focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold transition-all cursor-pointer"
+                    className="block w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 text-sm font-medium transition-all cursor-pointer"
                   >
                     <option value="Cafe">Cafe</option>
                     <option value="Cold Drinks">Cold Drinks</option>
@@ -384,7 +384,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                 <button
                   type="submit"
                   disabled={manualLoading}
-                  className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-xs font-extrabold uppercase tracking-wider text-white bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-[0_0_15px_rgba(0,242,254,0.3)] disabled:opacity-50 transition-all custom-button"
+                  className="w-full flex justify-center items-center py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-slate-900 hover:bg-slate-800 shadow-xs disabled:opacity-50 transition-all"
                 >
                   {manualLoading ? 'Adding...' : (
                     <>
@@ -409,12 +409,12 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search by item name..."
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-800 bg-slate-900 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-xs font-medium"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 text-xs font-medium"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
                     >
                       ✕
                     </button>
@@ -425,9 +425,9 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                   onClick={fetchMenuItems}
                   disabled={loadingItems}
                   title="Refresh items"
-                  className="p-2.5 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-cyan-300 hover:border-slate-700 transition-colors"
+                  className="p-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300 transition-colors shadow-xs"
                 >
-                  <RefreshCw className={`h-4 w-4 ${loadingItems ? 'animate-spin text-cyan-400' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 ${loadingItems ? 'animate-spin text-slate-400' : ''}`} />
                 </button>
               </div>
 
@@ -438,10 +438,10 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                     key={cat}
                     type="button"
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-3 py-1 rounded-lg text-[11px] font-bold uppercase font-mono tracking-wider transition-all ${
+                    className={`px-3 py-1 rounded-lg text-[11px] font-semibold uppercase font-mono tracking-wider transition-all ${
                       selectedCategory === cat
-                        ? 'bg-cyan-500 text-black font-extrabold shadow-[0_0_8px_rgba(0,242,254,0.4)]'
-                        : 'bg-slate-900/90 text-slate-400 hover:text-white border border-slate-800'
+                        ? 'bg-slate-900 text-white border border-slate-900 shadow-xs'
+                        : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
                     }`}
                   >
                     {cat}
@@ -455,11 +455,11 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
               {/* Items List */}
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {loadingItems ? (
-                  <div className="text-center py-8 text-xs font-semibold text-slate-500">
+                  <div className="text-center py-8 text-xs font-medium text-slate-400">
                     Loading menu items...
                   </div>
                 ) : filteredItems.length === 0 ? (
-                  <div className="text-center py-8 bg-slate-900/60 rounded-2xl border border-slate-800/80 text-xs text-slate-400">
+                  <div className="text-center py-8 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500">
                     No items found matching &quot;{searchQuery}&quot;.
                   </div>
                 ) : (
@@ -468,37 +468,37 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                       key={item.id}
                       className={`rounded-xl border p-3 transition-all ${
                         editingItemId === item.id
-                          ? 'bg-cyan-950/30 border-cyan-500/60 shadow-[0_0_15px_rgba(0,242,254,0.15)]'
-                          : 'bg-slate-900/70 border-slate-800/80 hover:border-slate-700'
+                          ? 'bg-slate-50 border-slate-300 shadow-xs'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
                       {editingItemId === item.id ? (
                         /* Inline Edit Form */
                         <div className="space-y-3">
-                          <div className="text-[10px] font-mono text-cyan-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
+                          <div className="text-[10px] font-mono text-slate-700 font-bold uppercase tracking-wider flex items-center gap-1.5">
                             <Edit3 className="h-3.5 w-3.5" />
                             Editing Item #{item.id}
                           </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <div className="sm:col-span-2">
-                              <label className="block text-[9px] font-mono uppercase text-slate-400 mb-1">Name</label>
+                              <label className="block text-[9px] font-mono uppercase text-slate-500 mb-1">Name</label>
                               <input
                                 type="text"
                                 value={editName}
                                 onChange={(e) => setEditName(e.target.value)}
-                                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-950 text-white text-xs font-semibold focus:border-cyan-500 focus:outline-none"
+                                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900 text-xs font-medium focus:border-slate-500 focus:outline-none"
                               />
                             </div>
                             <div>
-                              <label className="block text-[9px] font-mono uppercase text-slate-400 mb-1">Price (₹)</label>
+                              <label className="block text-[9px] font-mono uppercase text-slate-500 mb-1">Price (₹)</label>
                               <input
                                 type="number"
                                 min="0"
                                 step="0.01"
                                 value={editPrice}
                                 onChange={(e) => setEditPrice(e.target.value)}
-                                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-700 bg-slate-950 text-white text-xs font-mono font-bold focus:border-cyan-500 focus:outline-none"
+                                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-900 text-xs font-mono font-medium focus:border-slate-500 focus:outline-none"
                               />
                             </div>
                           </div>
@@ -507,7 +507,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                             <select
                               value={editCategory}
                               onChange={(e) => setEditCategory(e.target.value)}
-                              className="px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-950 text-slate-300 text-xs font-medium focus:border-cyan-500 focus:outline-none cursor-pointer"
+                              className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-medium focus:border-slate-500 focus:outline-none cursor-pointer"
                             >
                               <option value="Cafe">Cafe</option>
                               <option value="Cold Drinks">Cold Drinks</option>
@@ -519,7 +519,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                                 type="button"
                                 onClick={handleCancelEdit}
                                 disabled={savingEdit}
-                                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors"
+                                className="px-3 py-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors"
                               >
                                 Cancel
                               </button>
@@ -527,7 +527,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                                 type="button"
                                 onClick={() => handleSaveEdit(item.id)}
                                 disabled={savingEdit}
-                                className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-[0_0_10px_rgba(16,185,129,0.3)] disabled:opacity-50"
+                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-xs disabled:opacity-50"
                               >
                                 {savingEdit ? 'Saving...' : 'Save'}
                               </button>
@@ -538,7 +538,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                         /* Normal Item Row */
                         <div className="flex justify-between items-center gap-3">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="font-semibold text-white text-xs truncate">
+                            <span className="font-medium text-slate-900 text-xs truncate">
                               {item.name}
                             </span>
                             <span
@@ -551,13 +551,13 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                           </div>
 
                           <div className="flex items-center gap-3 shrink-0">
-                            <span className="font-mono font-extrabold text-cyan-300 text-sm">
+                            <span className="font-mono font-bold text-slate-900 text-sm">
                               ₹{item.price.toFixed(2)}
                             </span>
                             <button
                               type="button"
                               onClick={() => handleStartEdit(item)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-cyan-950/50 hover:bg-cyan-900/80 text-cyan-300 border border-cyan-500/40 rounded-lg text-[11px] font-bold transition-all shadow-sm"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-semibold transition-all shadow-xs"
                             >
                               <Edit3 className="h-3 w-3" />
                               Edit
@@ -576,16 +576,16 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
           {activeTab === 'bulk' && (
             <div className="space-y-5">
               <div
-                className="border-2 border-dashed border-slate-800 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:border-cyan-500/50 hover:bg-slate-900/50 transition-all cursor-pointer group"
+                className="border-2 border-dashed border-slate-200 rounded-2xl p-8 flex flex-col items-center justify-center text-center hover:border-slate-400 hover:bg-slate-50 transition-all cursor-pointer group"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <div className="bg-slate-900 border border-slate-800 p-3 rounded-2xl group-hover:scale-110 transition-transform duration-300 shadow-sm mb-3">
-                  <Upload className="h-6 w-6 text-cyan-400" />
+                <div className="bg-slate-100 border border-slate-200 p-3 rounded-2xl shadow-xs mb-3">
+                  <Upload className="h-6 w-6 text-slate-600" />
                 </div>
-                <p className="text-xs font-bold text-white">
+                <p className="text-xs font-bold text-slate-900">
                   {selectedFile ? selectedFile.name : 'Click to select CSV file'}
                 </p>
-                <p className="text-[10px] text-slate-500 font-mono mt-1">.csv files only</p>
+                <p className="text-[10px] text-slate-400 font-mono mt-1">.csv files only</p>
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -595,19 +595,19 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                 />
               </div>
 
-              <div className="bg-cyan-950/30 border border-cyan-500/30 rounded-xl p-4">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
                 <div className="flex justify-between items-center mb-2">
-                  <p className="text-[10px] font-extrabold text-cyan-400 uppercase tracking-widest font-mono">
+                  <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest font-mono">
                     Format Requirements
                   </p>
                   <button
                     onClick={downloadTemplate}
-                    className="text-[10px] font-bold bg-slate-900 border border-cyan-500/40 text-cyan-300 px-2 py-1 rounded-lg hover:bg-cyan-500 hover:text-black transition-colors flex items-center"
+                    className="text-[10px] font-bold bg-white border border-slate-200 text-slate-700 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors flex items-center shadow-xs"
                   >
                     <Download className="h-3 w-3 mr-1" /> Template
                   </button>
                 </div>
-                <p className="text-xs text-cyan-200/80 leading-relaxed font-mono">
+                <p className="text-xs text-slate-600 leading-relaxed font-mono">
                   Your CSV must contain exact headers: <b>Name, Price, Category</b>.
                 </p>
               </div>
@@ -616,7 +616,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                 <button
                   onClick={handleBulkSubmit}
                   disabled={bulkLoading || !selectedFile}
-                  className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-xl text-xs font-extrabold uppercase tracking-wider text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-[0_0_15px_rgba(168,85,247,0.3)] disabled:opacity-50 transition-all custom-button"
+                  className="w-full flex justify-center items-center py-2.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-white bg-slate-900 hover:bg-slate-800 shadow-xs disabled:opacity-50 transition-all"
                 >
                   {bulkLoading ? 'Uploading...' : (
                     <>

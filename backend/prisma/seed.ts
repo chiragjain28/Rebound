@@ -1,3 +1,10 @@
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Prioritize .env.local for local dev seeding
+dotenv.config({ path: path.join(__dirname, '../.env.local'), override: true });
+dotenv.config({ path: path.join(__dirname, '../.env') });
+
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -5,6 +12,7 @@ const prisma = new PrismaClient();
 
 async function main() {
   console.log('Seeding database...');
+  console.log('Target DB URL:', process.env.DATABASE_URL?.split('@')[1] || 'default');
 
   // 1. Seed Staff
   const passwordHash = await bcrypt.hash('rebound@123', 10);
@@ -23,15 +31,30 @@ async function main() {
   }
   console.log('Staff members seeded.');
 
-  // 2. Seed Billiard Tables
+  // 2. Seed Billiard & Snooker Tables
   for (let i = 1; i <= 5; i++) {
     await prisma.table.upsert({
-      where: { number: i },
-      update: {},
-      create: { number: i, status: 'available' }
+      where: {
+        gameType_number: {
+          gameType: 'Pool',
+          number: i
+        }
+      },
+      update: { status: 'available' },
+      create: { gameType: 'Pool', number: i, status: 'available' }
     });
   }
-  console.log('Billiard tables seeded.');
+  await prisma.table.upsert({
+    where: {
+      gameType_number: {
+        gameType: 'MidSnooker',
+        number: 1
+      }
+    },
+    update: { status: 'available' },
+    create: { gameType: 'MidSnooker', number: 1, status: 'available' }
+  });
+  console.log('Billiard and snooker tables seeded.');
 
   // 3. Seed Menu Items (21 items across Cafe, Cold Drinks, Cigarettes)
   const menuItems = [

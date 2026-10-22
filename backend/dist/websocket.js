@@ -39,9 +39,12 @@ let wss;
 const initWebSocket = (server) => {
     wss = new ws_1.Server({ server });
     wss.on('connection', (ws) => {
-        console.log('New WebSocket client connected');
+        ws.on('error', (err) => {
+            // Prevent unhandled error event crashes
+            console.warn('[WS] Client socket error:', err.message);
+        });
         ws.on('close', () => {
-            console.log('WebSocket client disconnected');
+            // Disconnected
         });
     });
 };

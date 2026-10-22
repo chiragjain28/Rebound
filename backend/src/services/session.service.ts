@@ -1,10 +1,17 @@
 import { prisma } from '../index';
 
-export class SessionService {
-  static async getActiveSessions() {
-    return prisma.session.findMany({
+export class VisitService {
+  static async getActiveVisits() {
+    return prisma.visit.findMany({
       where: { status: 'active' },
-      include: { table: true }
+      include: {
+        customer: true,
+        tablePlays: { include: { table: true } },
+        orders: { include: { menuItem: true } },
+        payments: true
+      }
     });
   }
 }
+
+export const SessionService = VisitService;

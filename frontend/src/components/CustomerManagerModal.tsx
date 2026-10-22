@@ -80,7 +80,7 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
   const [deletingCustomer, setDeletingCustomer] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeleteTooltip, setShowDeleteTooltip] = useState(false);
-  
+
   // Add customer form state
   const [showAddForm, setShowAddForm] = useState(false);
   const [newFirstName, setNewFirstName] = useState('');
@@ -88,77 +88,70 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
   const [newPhone, setNewPhone] = useState('');
   const [addingCustomer, setAddingCustomer] = useState(false);
 
-  // Status message
+  // Notifications
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const fetchCustomers = async (search = '') => {
+  const fetchCustomers = async (query = '') => {
     try {
       setLoading(true);
-      const data = await api.get(`/customers${search ? `?search=${encodeURIComponent(search)}` : ''}`);
-      if (Array.isArray(data)) {
-        setCustomers(data);
-      }
+      const endpoint = query ? `/customers/search?q=${encodeURIComponent(query)}` : '/customers';
+      const data = await api.get(endpoint);
+      setCustomers(data);
     } catch (err: any) {
-      console.error('Failed to fetch customers:', err);
+      console.error('Failed to fetch customers:', err.message);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      fetchCustomers(searchQuery);
+    fetchCustomers();
+  }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      fetchCustomers(searchQuery.trim());
     }, 250);
-    return () => clearTimeout(delayDebounce);
+    return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // When a customer is selected, load their details, payments & eligibility
-  const handleSelectCustomer = async (cust: Customer) => {
-    setSelectedCustomer(cust);
-    setEditFirstName(cust.firstName || '');
-    setEditLastName(cust.lastName || '');
+  const handleSelectCustomer = async (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setEditFirstName(customer.firstName || '');
+    setEditLastName(customer.lastName || '');
     setShowDeleteConfirm(false);
     setShowAddForm(false);
-    setShowDeleteTooltip(false);
     setNotification(null);
-    setEligibility(null);
 
-    // Fetch payments and deletion eligibility concurrently
-    setLoadingPayments(true);
-    setLoadingEligibility(true);
+    // 1. Fetch last 3-4 payments
+    try {
+      setLoadingPayments(true);
+      const paymentData = await api.get(`/customers/${encodeURIComponent(customer.phone)}/payments`);
+      setPayments(paymentData);
+    } catch (err: any) {
+      console.error('Failed to fetch payments:', err.message);
+      setPayments([]);
+    } finally {
+      setLoadingPayments(false);
+    }
 
-    api.get(`/customers/${encodeURIComponent(cust.phone)}/payments`)
-      .then((data) => {
-        if (Array.isArray(data)) setPayments(data);
-      })
-      .catch((err: any) => {
-        console.error('Failed to fetch customer payments:', err);
-        setPayments([]);
-      })
-      .finally(() => setLoadingPayments(false));
-
-    api.get(`/customers/${encodeURIComponent(cust.phone)}/eligibility`)
-      .then((data: DeletionEligibility) => {
-        setEligibility(data);
-      })
-      .catch((err: any) => {
-        console.error('Failed to fetch customer deletion eligibility:', err);
-        setEligibility({
-          canDelete: false,
-          hasActiveSession: false,
-          hasUdhar: false,
-          totalUdhar: 0,
-          reasons: ['Unable to verify deletion status']
-        });
-      })
-      .finally(() => setLoadingEligibility(false));
+    // 2. Fetch deletion eligibility
+    try {
+      setLoadingEligibility(true);
+      const eligibilityData = await api.get(`/customers/${encodeURIComponent(customer.phone)}/eligibility`);
+      setEligibility(eligibilityData);
+    } catch (err: any) {
+      console.error('Failed to fetch eligibility:', err.message);
+      setEligibility(null);
+    } finally {
+      setLoadingEligibility(false);
+    }
   };
 
-  // Save edited customer details
   const handleSaveCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCustomer) return;
@@ -175,14 +168,12 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
         lastName: editLastName.trim()
       });
 
-      setSelectedCustomer(updated);
-      setNotification({ type: 'success', message: 'Customer details updated successfully' });
-      
-      // Invalidate customer cache
       if (typeof window !== 'undefined') {
         localStorage.removeItem('rebound_customer_profiles_cache');
       }
 
+      setSelectedCustomer(updated);
+      setNotification({ type: 'success', message: 'Customer details updated successfully' });
       fetchCustomers(searchQuery);
       if (onCustomerUpdated) onCustomerUpdated();
     } catch (err: any) {
@@ -192,22 +183,21 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
     }
   };
 
-  // Delete customer
   const handleDeleteCustomer = async () => {
     if (!selectedCustomer) return;
 
     try {
       setDeletingCustomer(true);
+      setNotification(null);
       await api.delete(`/customers/${encodeURIComponent(selectedCustomer.phone)}`);
-      
-      // Invalidate customer cache
+
       if (typeof window !== 'undefined') {
         localStorage.removeItem('rebound_customer_profiles_cache');
       }
 
+      setNotification({ type: 'success', message: `Customer "${selectedCustomer.name}" deleted successfully` });
       setSelectedCustomer(null);
       setShowDeleteConfirm(false);
-      setNotification({ type: 'success', message: 'Customer removed from database' });
       fetchCustomers(searchQuery);
       if (onCustomerUpdated) onCustomerUpdated();
     } catch (err: any) {
@@ -217,7 +207,6 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
     }
   };
 
-  // Add new customer
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFirstName.trim()) {
@@ -225,7 +214,7 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
       return;
     }
     if (!newPhone.trim()) {
-      setNotification({ type: 'error', message: 'Phone number is required' });
+      setNotification({ type: 'error', message: 'Mobile number is required' });
       return;
     }
 
@@ -238,7 +227,6 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
         phone: newPhone.trim()
       });
 
-      // Invalidate customer cache
       if (typeof window !== 'undefined') {
         localStorage.removeItem('rebound_customer_profiles_cache');
       }
@@ -261,25 +249,25 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in">
-      <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-4xl shadow-[0_25px_70px_rgba(0,0,0,0.9)] p-6 flex flex-col h-[640px] max-h-[92vh] space-y-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 animate-in fade-in">
+      <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-4xl shadow-2xl p-6 flex flex-col h-[640px] max-h-[92vh] space-y-4">
         
         {/* Header */}
-        <div className="flex justify-between items-center shrink-0 border-b border-slate-800 pb-3">
+        <div className="flex justify-between items-center shrink-0 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 border border-cyan-500/40 text-cyan-400">
+            <div className="p-2.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700">
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-xl font-extrabold text-white font-display uppercase tracking-wider flex items-center gap-2">
-                Rebound Customers
+              <h2 className="text-base font-bold text-slate-900 tracking-tight font-display flex items-center gap-2">
+                Rebound Customer Directory
               </h2>
-              <p className="text-xs text-slate-400 mt-0.5 font-medium">Search, edit, manage profiles, and view payment history</p>
+              <p className="text-xs text-slate-500 mt-0.5">Manage customer directory, view statements and payment logs</p>
             </div>
           </div>
           <button 
             onClick={onClose} 
-            className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition-colors"
+            className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -287,10 +275,10 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
 
         {/* Status Notification */}
         {notification && (
-          <div className={`text-xs font-bold p-3 rounded-xl border shrink-0 flex items-center justify-between ${
+          <div className={`text-xs font-semibold p-3 rounded-xl border shrink-0 flex items-center justify-between ${
             notification.type === 'success' 
-              ? 'bg-emerald-950/70 text-emerald-300 border-emerald-500/40' 
-              : 'bg-rose-950/70 text-rose-300 border-rose-500/40'
+              ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+              : 'bg-rose-50 text-rose-800 border-rose-200'
           }`}>
             <span>{notification.message}</span>
             <button onClick={() => setNotification(null)} className="opacity-70 hover:opacity-100">
@@ -303,24 +291,24 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
         <div className="flex-1 flex gap-5 min-h-0">
           
           {/* Left Column: Customer Search & List */}
-          <div className="w-80 shrink-0 flex flex-col space-y-3 min-h-0 border-r border-slate-800 pr-5">
+          <div className="w-80 shrink-0 flex flex-col space-y-3 min-h-0 border-r border-slate-200 pr-5">
             
             {/* Action Bar: Search + Add Customer */}
             <div className="space-y-2 shrink-0">
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-cyan-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search name, surname, phone..."
+                    placeholder="Search name or phone..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-7 py-2 text-xs font-semibold border border-slate-800 rounded-xl focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 bg-slate-900 text-white placeholder-slate-500"
+                    className="w-full pl-9 pr-7 py-2 text-xs font-semibold border border-slate-200 rounded-xl focus:outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-900 bg-slate-50 text-slate-900 placeholder-slate-400"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -334,7 +322,7 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
                     setSelectedCustomer(null);
                     setNotification(null);
                   }}
-                  className="px-3 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-[0_0_12px_rgba(0,242,254,0.3)] shrink-0 transition-all"
+                  className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-xs shrink-0 transition-all"
                   title="Add New Customer"
                 >
                   <UserPlus className="h-3.5 w-3.5" />
@@ -343,31 +331,31 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
               </div>
 
               <div className="text-[11px] font-mono text-slate-400 px-1 flex justify-between items-center">
-                <span>{loading ? 'Searching...' : `${customers.length} customers found`}</span>
+                <span>{loading ? 'Searching...' : `${customers.length} customers`}</span>
                 {searchQuery && (
-                  <span className="text-cyan-400 text-[10px]">Filtered by "{searchQuery}"</span>
+                  <span className="text-slate-600 text-[10px] font-semibold">Filtered</span>
                 )}
               </div>
             </div>
 
             {/* Scrollable Customer List */}
-            <div className="flex-1 overflow-y-auto min-h-0 border border-slate-800 rounded-2xl bg-slate-900/60 divide-y divide-slate-800/80">
+            <div className="flex-1 overflow-y-auto min-h-0 border border-slate-200 rounded-xl bg-white divide-y divide-slate-100">
               {loading && customers.length === 0 ? (
-                <div className="text-center py-16 text-slate-500 text-xs font-semibold">
+                <div className="text-center py-16 text-slate-400 text-xs">
                   Loading customers...
                 </div>
               ) : customers.length === 0 ? (
-                <div className="text-center py-16 text-slate-500 text-xs font-semibold space-y-2">
-                  <p>No customers found matching "{searchQuery}"</p>
+                <div className="text-center py-16 text-slate-400 text-xs space-y-2">
+                  <p>No customers found</p>
                   <button
                     type="button"
                     onClick={() => {
                       setShowAddForm(true);
                       setNewFirstName(searchQuery);
                     }}
-                    className="text-cyan-400 hover:underline text-xs"
+                    className="text-slate-900 font-bold hover:underline text-xs"
                   >
-                    + Add "{searchQuery}" as new customer
+                    + Add as new customer
                   </button>
                 </div>
               ) : (
@@ -379,21 +367,21 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
                       onClick={() => handleSelectCustomer(c)}
                       className={`p-3 cursor-pointer transition-all flex items-center justify-between ${
                         isSelected 
-                          ? 'bg-cyan-950/50 border-l-4 border-cyan-400 text-white' 
-                          : 'hover:bg-slate-800/60 text-slate-300'
+                          ? 'bg-slate-100 border-l-4 border-slate-900 text-slate-900 font-bold' 
+                          : 'hover:bg-slate-50 text-slate-800'
                       }`}
                     >
                       <div className="min-w-0 pr-2">
-                        <p className="font-extrabold text-white text-sm truncate flex items-center gap-1.5">
-                          <User className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                        <p className="font-bold text-slate-900 text-xs truncate flex items-center gap-1.5">
+                          <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                           <span>{c.name}</span>
                         </p>
-                        <p className="text-xs font-mono text-slate-400 flex items-center gap-1 mt-0.5">
-                          <Phone className="h-3 w-3 text-cyan-400/80 shrink-0" />
+                        <p className="text-[11px] font-mono text-slate-500 flex items-center gap-1 mt-0.5">
+                          <Phone className="h-3 w-3 text-slate-400 shrink-0" />
                           <span>{c.phone}</span>
                         </p>
                       </div>
-                      <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${isSelected ? 'text-cyan-400 translate-x-0.5' : 'text-slate-600'}`} />
+                      <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${isSelected ? 'text-slate-900 translate-x-0.5' : 'text-slate-300'}`} />
                     </div>
                   );
                 })
@@ -402,22 +390,22 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
           </div>
 
           {/* Right Column: Customer Details / Edit / Add Form */}
-          <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-slate-900/50 rounded-2xl border border-slate-800 p-5 overflow-y-auto">
+          <div className="flex-1 min-w-0 flex flex-col min-h-0 bg-slate-50/50 rounded-xl border border-slate-200 p-5 overflow-y-auto">
             
             {showAddForm ? (
               /* Add Customer Form */
-              <div className="space-y-5 animate-in fade-in">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div className="space-y-4 animate-in fade-in">
+                <div className="flex justify-between items-center border-b border-slate-200 pb-3">
                   <div>
-                    <h3 className="text-base font-extrabold text-white uppercase tracking-wider font-display">
-                      Add New Customer
+                    <h3 className="text-sm font-bold text-slate-900 font-display">
+                      Register Permanent Customer
                     </h3>
-                    <p className="text-xs text-slate-400 mt-0.5 font-medium">Create a new customer profile in the database</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Save customer permanently to database</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowAddForm(false)}
-                    className="text-xs text-slate-400 hover:text-white flex items-center gap-1"
+                    className="text-xs text-slate-500 hover:text-slate-800 flex items-center gap-1 font-semibold"
                   >
                     <ArrowLeft className="h-3.5 w-3.5" /> Back
                   </button>
@@ -426,35 +414,35 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
                 <form onSubmit={handleAddCustomer} className="space-y-4 max-w-lg">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 font-mono">
-                        First Name <span className="text-cyan-400">*</span>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        First Name <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
                         required
                         value={newFirstName}
                         onChange={(e) => setNewFirstName(e.target.value)}
-                        placeholder="e.g. Ayush"
-                        className="w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold"
+                        placeholder="e.g. Tony"
+                        className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-semibold"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 font-mono">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         Surname / Last Name
                       </label>
                       <input
                         type="text"
                         value={newLastName}
                         onChange={(e) => setNewLastName(e.target.value)}
-                        placeholder="e.g. Chaudhary"
-                        className="w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold"
+                        placeholder="e.g. Stark"
+                        className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-semibold"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 font-mono">
-                      Mobile Number <span className="text-cyan-400">*</span>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Mobile Number <span className="text-rose-500">*</span>
                     </label>
                     <input
                       type="tel"
@@ -462,23 +450,23 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
                       value={newPhone}
                       onChange={(e) => setNewPhone(e.target.value)}
                       placeholder="e.g. 9876543210"
-                      className="w-full rounded-xl bg-slate-900 border border-slate-800 px-3 py-2 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold font-mono"
+                      className="w-full rounded-xl bg-white border border-slate-200 px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-mono font-semibold"
                     />
-                    <p className="text-[10px] text-slate-500 mt-1">Mobile number is the unique immutable identifier for this customer.</p>
+                    <p className="text-[10px] text-slate-400 mt-1">Mobile number is the unique immutable identifier.</p>
                   </div>
 
                   <div className="pt-2 flex gap-3">
                     <button
                       type="button"
                       onClick={() => setShowAddForm(false)}
-                      className="px-4 py-2 border border-slate-800 text-xs font-bold uppercase tracking-wider rounded-xl text-slate-300 bg-slate-900 hover:bg-slate-800 transition-all"
+                      className="px-4 py-2 border border-slate-200 text-xs font-semibold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-all"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={addingCustomer}
-                      className="px-5 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-extrabold uppercase tracking-wider rounded-xl shadow-[0_0_15px_rgba(0,242,254,0.3)] disabled:opacity-50 transition-all"
+                      className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs disabled:opacity-50 transition-all"
                     >
                       {addingCustomer ? 'Saving...' : 'Create Customer'}
                     </button>
@@ -487,21 +475,21 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
               </div>
             ) : selectedCustomer ? (
               /* Edit Selected Customer View */
-              <div className="space-y-6 animate-in fade-in">
+              <div className="space-y-5 animate-in fade-in">
                 
                 {/* Customer Title */}
-                <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+                <div className="flex justify-between items-start border-b border-slate-200 pb-3">
                   <div>
-                    <span className="text-[10px] font-mono text-cyan-400 font-extrabold uppercase tracking-widest">
+                    <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-wider">
                       Customer Profile
                     </span>
-                    <h3 className="text-xl font-extrabold text-white mt-0.5 flex items-center gap-2 font-display">
-                      <User className="h-5 w-5 text-cyan-400 shrink-0" />
+                    <h3 className="text-base font-bold text-slate-900 mt-0.5 flex items-center gap-2 font-display">
+                      <User className="h-4 w-4 text-slate-500 shrink-0" />
                       <span>{selectedCustomer.name}</span>
                     </h3>
                   </div>
 
-                  {/* Delete Customer Button with Hover Tooltip */}
+                  {/* Delete Customer Button */}
                   <div 
                     className="relative flex flex-col items-end"
                     onMouseEnter={() => setShowDeleteTooltip(true)}
@@ -515,73 +503,47 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
                           setShowDeleteConfirm(!showDeleteConfirm);
                         }
                       }}
-                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                         loadingEligibility
-                          ? 'bg-slate-900 border border-slate-800 text-slate-500 cursor-wait'
+                          ? 'bg-slate-100 text-slate-400 cursor-wait'
                           : eligibility?.canDelete
-                          ? 'bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/40 cursor-pointer shadow-[0_0_12px_rgba(244,63,94,0.25)]'
-                          : 'bg-slate-900/90 text-slate-500 border border-slate-800 cursor-not-allowed opacity-60 hover:border-amber-500/40'
+                          ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 cursor-pointer shadow-xs'
+                          : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-70'
                       }`}
                     >
                       {eligibility?.canDelete ? (
-                        <Trash2 className="h-3.5 w-3.5 text-rose-400" />
+                        <Trash2 className="h-3.5 w-3.5 text-rose-600" />
                       ) : (
-                        <Lock className="h-3.5 w-3.5 text-slate-500" />
+                        <Lock className="h-3.5 w-3.5 text-slate-400" />
                       )}
                       Delete Customer
                     </button>
 
-                    {/* Floating Hover Tooltip - Only shown when hovering on the delete button */}
                     {showDeleteTooltip && eligibility && !eligibility.canDelete && (
-                      <div className="absolute right-0 top-full mt-2 w-80 z-50 pointer-events-none bg-[#141210]/95 backdrop-blur-2xl border border-amber-500/50 rounded-2xl p-3.5 text-amber-200 text-xs space-y-2.5 shadow-[0_15px_40px_rgba(0,0,0,0.85)] animate-in fade-in zoom-in-95 duration-150">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 font-bold text-amber-300 uppercase tracking-wider font-mono text-[11px]">
-                            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
-                            <span>Deletion Locked</span>
-                          </div>
-                          <span className="text-[9px] font-mono text-amber-400/90 bg-amber-950/90 px-2 py-0.5 rounded border border-amber-500/30 uppercase tracking-wider">
-                            Action Required
-                          </span>
+                      <div className="absolute right-0 top-full mt-2 w-80 z-50 pointer-events-none bg-white border border-amber-300 rounded-xl p-3 text-amber-900 text-xs space-y-2 shadow-xl animate-in fade-in">
+                        <div className="flex items-center gap-2 font-bold text-amber-800">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                          <span>Deletion Protected</span>
                         </div>
-
-                        <div className="flex flex-wrap gap-2 pt-0.5">
-                          {eligibility.hasActiveSession && (
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono text-[11px] font-semibold">
-                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                              <span>Active Session: {eligibility.activeSession?.tableName || 'Active Table'}</span>
-                            </div>
-                          )}
-                          {eligibility.hasUdhar && (
-                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-950/80 border border-rose-500/40 text-rose-300 font-mono text-[11px] font-semibold">
-                              <IndianRupee className="h-3 w-3 text-rose-400" />
-                              <span>Unpaid Udhar: ₹{eligibility.totalUdhar}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <p className="text-[11px] text-amber-200/90 leading-relaxed font-sans">
-                          Customer can only be deleted when their active game session is completed and all outstanding udhars are settled.
+                        <p className="text-[11px] text-slate-600">
+                          Customer cannot be deleted while they have an active table session or unpaid outstanding balance.
                         </p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Delete Confirmation Alert (Only when eligible) */}
+                {/* Delete Confirmation Alert */}
                 {showDeleteConfirm && eligibility?.canDelete && (
-                  <div className="bg-rose-950/80 border-2 border-rose-500/60 rounded-2xl p-4 text-rose-200 space-y-3 animate-in fade-in">
-                    <div className="flex items-center gap-2 text-rose-300 font-extrabold text-xs uppercase tracking-wider font-mono">
-                      <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0" />
-                      <span>Confirm Deletion</span>
-                    </div>
-                    <p className="text-xs text-rose-100 leading-relaxed font-medium">
-                      Are you sure you want to delete <b>{selectedCustomer.name}</b> from the database? This will remove their saved customer directory profile. Past invoices and payment records will be preserved for financial accounting.
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-rose-800 space-y-3 animate-in fade-in">
+                    <p className="text-xs font-semibold">
+                      Are you sure you want to delete <b>{selectedCustomer.name}</b>?
                     </p>
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => setShowDeleteConfirm(false)}
-                        className="px-3 py-1.5 bg-slate-900 text-slate-300 border border-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider"
+                        className="px-3 py-1.5 bg-white text-slate-700 border border-slate-200 rounded-xl text-xs font-bold"
                       >
                         Cancel
                       </button>
@@ -589,9 +551,9 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
                         type="button"
                         onClick={handleDeleteCustomer}
                         disabled={deletingCustomer}
-                        className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all disabled:opacity-50"
+                        className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50"
                       >
-                        {deletingCustomer ? 'Deleting...' : 'Yes, Delete from DB'}
+                        {deletingCustomer ? 'Deleting...' : 'Yes, Delete'}
                       </button>
                     </div>
                   </div>
@@ -601,80 +563,75 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
                 <form onSubmit={handleSaveCustomer} className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 font-mono">
-                        First Name <span className="text-cyan-400">*</span>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        First Name <span className="text-rose-500">*</span>
                       </label>
                       <input
                         type="text"
                         required
                         value={editFirstName}
                         onChange={(e) => setEditFirstName(e.target.value)}
-                        className="w-full rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2.5 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold"
+                        className="w-full rounded-xl bg-white border border-slate-200 px-3.5 py-2 text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-semibold"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 font-mono">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         Surname / Last Name
                       </label>
                       <input
                         type="text"
                         value={editLastName}
                         onChange={(e) => setEditLastName(e.target.value)}
-                        placeholder="e.g. Chaudhary"
-                        className="w-full rounded-xl bg-slate-900 border border-slate-800 px-3.5 py-2.5 text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 text-sm font-semibold"
+                        placeholder="e.g. Stark"
+                        className="w-full rounded-xl bg-white border border-slate-200 px-3.5 py-2 text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-semibold"
                       />
                     </div>
                   </div>
 
-                  {/* Immutable Mobile Number */}
                   <div>
-                    <label className="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-slate-300 mb-1 font-mono">
+                    <label className="flex justify-between items-center text-xs font-bold text-slate-700 mb-1">
                       <span>Mobile Number</span>
-                      <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                        <Lock className="h-3 w-3 text-cyan-400" /> Immutable
+                      <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
+                        <Lock className="h-3 w-3" /> Immutable Key
                       </span>
                     </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        disabled
-                        value={selectedCustomer.phone}
-                        className="w-full rounded-xl bg-slate-950 border border-slate-800/80 px-3.5 py-2.5 text-slate-400 font-mono font-bold text-sm cursor-not-allowed opacity-80"
-                      />
-                      <Lock className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-1 font-mono">Phone number serves as the fixed unique identifier.</p>
+                    <input
+                      type="text"
+                      disabled
+                      value={selectedCustomer.phone}
+                      className="w-full rounded-xl bg-slate-100 border border-slate-200 px-3.5 py-2 text-slate-500 font-mono text-xs cursor-not-allowed"
+                    />
                   </div>
 
                   <div className="flex justify-end pt-1">
                     <button
                       type="submit"
                       disabled={savingEdit}
-                      className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-extrabold uppercase tracking-wider rounded-xl shadow-[0_0_15px_rgba(0,242,254,0.3)] disabled:opacity-50 transition-all custom-button"
+                      className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs disabled:opacity-50 transition-all"
                     >
-                      {savingEdit ? 'Saving Changes...' : 'Save Changes'}
+                      {savingEdit ? 'Saving...' : 'Save Changes'}
                     </button>
                   </div>
                 </form>
 
-                {/* Last 3-4 Payments with Dates */}
-                <div className="border-t border-slate-800 pt-4 space-y-3">
+                {/* Last 3-4 Payments */}
+                <div className="border-t border-slate-200 pt-4 space-y-3">
                   <div className="flex justify-between items-center">
-                    <h4 className="text-xs font-extrabold text-slate-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
-                      <CreditCard className="h-4 w-4 text-cyan-400" />
-                      Recent Payment Transactions (Last 3–4)
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <CreditCard className="h-4 w-4 text-slate-500" />
+                      Recent Payment Transactions
                     </h4>
-                    <span className="text-[10px] font-mono text-slate-500">
+                    <span className="text-[10px] font-mono text-slate-400">
                       {payments.length} transactions
                     </span>
                   </div>
 
                   {loadingPayments ? (
-                    <div className="text-center py-6 text-slate-500 text-xs font-semibold">
+                    <div className="text-center py-6 text-slate-400 text-xs font-medium">
                       Loading payment history...
                     </div>
                   ) : payments.length === 0 ? (
-                    <div className="text-center py-6 bg-slate-900/60 rounded-xl border border-slate-800/80 text-slate-500 text-xs font-medium">
+                    <div className="text-center py-6 bg-white rounded-xl border border-slate-200 text-slate-400 text-xs">
                       No payment records found for this customer.
                     </div>
                   ) : (
@@ -682,37 +639,27 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
                       {payments.map((p) => (
                         <div
                           key={p.id}
-                          className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex justify-between items-center hover:border-slate-700 transition-colors shadow-sm"
+                          className="bg-white border border-slate-200 rounded-xl p-3 flex justify-between items-center shadow-xs"
                         >
                           <div className="min-w-0 pr-2 space-y-0.5">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-mono font-extrabold text-cyan-400">
+                              <span className="text-xs font-mono font-bold text-emerald-700">
                                 ₹{p.amount.toFixed(2)}
                               </span>
-                              <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded font-mono ${
-                                p.method === 'UPI' 
-                                  ? 'bg-purple-950 text-purple-300 border border-purple-500/40' 
-                                  : 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
-                              }`}>
+                              <span className="text-[10px] font-bold uppercase px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200">
                                 {p.method}
                               </span>
                             </div>
-                            <p className="text-[11px] font-mono text-slate-400 flex items-center gap-1">
-                              <Calendar className="h-3 w-3 text-slate-500" />
-                              {new Date(p.createdAt).toLocaleDateString([], { dateStyle: 'medium' })}{' '}
-                              {new Date(p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <p className="text-[10px] font-mono text-slate-500 flex items-center gap-1">
+                              <Calendar className="h-3 w-3 text-slate-400" />
+                              {new Date(p.createdAt).toLocaleDateString([], { dateStyle: 'medium' })}
                             </p>
                           </div>
 
                           <div className="text-right shrink-0">
-                            <span className="text-[10px] font-mono text-slate-500 block truncate max-w-[140px]">
-                              Session: {p.sessionId}
+                            <span className="text-[10px] font-mono text-slate-400 block truncate max-w-[140px]">
+                              {p.sessionId}
                             </span>
-                            {p.session?.totalBill !== undefined && (
-                              <span className="text-[10px] text-slate-400">
-                                Bill: ₹{p.session.totalBill.toFixed(2)}
-                              </span>
-                            )}
                           </div>
                         </div>
                       ))}
@@ -722,17 +669,9 @@ export const CustomerManagerModal: React.FC<CustomerManagerModalProps> = ({
 
               </div>
             ) : (
-              /* Empty state: Select customer prompt */
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
-                <div className="p-4 rounded-3xl bg-slate-900 border border-slate-800 text-slate-500">
-                  <User className="h-8 w-8" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-300">No Customer Selected</h3>
-                  <p className="text-xs text-slate-500 mt-1 max-w-xs">
-                    Select a customer from the left list to view/edit their details, or click "+ Add" to create a new profile.
-                  </p>
-                </div>
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3 text-slate-400">
+                <User className="h-8 w-8 text-slate-300" />
+                <p className="text-xs">Select a customer from the left to view profile & payment history</p>
               </div>
             )}
 
