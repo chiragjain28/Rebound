@@ -13,9 +13,9 @@ interface SessionCardProps {
 }
 
 const GAME_LABELS: Record<string, string> = {
-  'Pool': 'Pool 🎱',
-  'MidSnooker': 'Mid Snooker 🎱',
-  'PS4': 'PS4 🎮',
+  'Pool': 'Pool',
+  'MidSnooker': 'Mid Snooker',
+  'PS4': 'PS4',
   'None': 'No Game',
 };
 

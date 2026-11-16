@@ -7,7 +7,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useWebSocket } from '../../../hooks/useWebSocket';
 import { api } from '../../../lib/api';
 import { Session, Order, Table, TablePlay } from '../../../types';
-import { Navbar } from '../../../components/Navbar';
+
 import { AddOrderModal } from '../../../components/AddOrderModal';
 import { RecordPaymentModal } from '../../../components/RecordPaymentModal';
 import { CloseSessionModal } from '../../../components/CloseSessionModal';
@@ -251,7 +251,7 @@ const TablePlaySection: React.FC<TablePlaySectionProps> = ({
 
           const label = tp.gameType === 'PS4'
             ? `PS4 (${tp.playerCount} Player${tp.playerCount > 1 ? 's' : ''})`
-            : `${tp.gameType}${tp.table ? ` (Table ${tp.table.number})` : ''}`;
+            : `${tp.gameType}${tp.table ? ` (${tp.table.name || `Table ${tp.table.number}`})` : ''}`;
 
           return (
             <div key={tp.id} className="flex items-center justify-between px-5 py-3.5 text-sm hover:bg-slate-50 transition-colors last:rounded-b-2xl">
@@ -363,6 +363,16 @@ export default function SessionDetailsPage() {
 
   const tables = tablesData || [];
   const loading = !session && !sessionError;
+
+  // Seamlessly transition legacy session route into permanent customer account timeline
+  useEffect(() => {
+    if (session) {
+      const target = session.customerPhone || session.customerName;
+      if (target) {
+        router.replace(`/customers?phone=${encodeURIComponent(target)}`);
+      }
+    }
+  }, [session, router]);
 
   const [showAddOrder, setShowAddOrder] = useState(false);
   const [showRecordPayment, setShowRecordPayment] = useState(false);
@@ -877,7 +887,7 @@ export default function SessionDetailsPage() {
             }
             const label = tp.gameType === 'PS4'
               ? `PS4 (${tp.playerCount} Players)`
-              : `${tp.gameType}${tp.table ? ` (Table ${tp.table.number})` : ''}`;
+              : `${tp.gameType}${tp.table ? ` (${tp.table.name || `Table ${tp.table.number}`})` : ''}`;
             
             return `
               <div class="flex-row">
@@ -988,7 +998,7 @@ export default function SessionDetailsPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 font-sans">
-      <Navbar />
+
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
 
@@ -1090,7 +1100,7 @@ export default function SessionDetailsPage() {
                         {activePlays.map((ap) => {
                           const label = ap.gameType === 'PS4'
                             ? `PS4 (${ap.playerCount} Player${ap.playerCount > 1 ? 's' : ''})`
-                            : `${ap.gameType}${ap.table ? ` (Table ${ap.table.number})` : ''}`;
+                            : `${ap.gameType}${ap.table ? ` (${ap.table.name || `Table ${ap.table.number}`})` : ''}`;
                           return (
                             <div key={ap.id} className="bg-slate-50 rounded-xl p-4 border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
                               <div>
@@ -1151,7 +1161,7 @@ export default function SessionDetailsPage() {
                             <option value="">-- Select Table --</option>
                             {availableTables.map((t) => (
                               <option key={t.id} value={t.id.toString()}>
-                                Table {t.number}
+                                {t.name || (t.gameType === 'PS4' ? `Station ${t.number}` : `Table ${t.number}`)}
                               </option>
                             ))}
                           </select>
@@ -1470,7 +1480,8 @@ export default function SessionDetailsPage() {
                 {amountPaid > 0 && (
                   <div className="flex justify-between text-emerald-600 font-medium">
                     <span className="flex items-center gap-1.5">
-                      <span>💳</span> Advance / Partial Paid
+                      <CreditCard className="w-3.5 h-3.5" />
+                      <span>Advance / Partial Paid</span>
                     </span>
                     <span className="font-mono font-bold">−₹{amountPaid.toFixed(2)}</span>
                   </div>
@@ -1583,8 +1594,12 @@ export default function SessionDetailsPage() {
                     : 'bg-rose-50 text-rose-800 border border-rose-200 shadow-xs'
                 }`}>
                   <p className="flex items-center gap-1.5">
-                    <span>{waStatus.type === 'success' ? '🚀' : '⚠️'}</span>
-                    {waStatus.message}
+                    {waStatus.type === 'success' ? (
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    )}
+                    <span>{waStatus.message}</span>
                   </p>
                 </div>
               )}

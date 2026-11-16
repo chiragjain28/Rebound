@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../index';
 import { authenticateToken } from '../middleware/auth';
 import { broadcast } from '../websocket';
+import { runNightlyAutoClose } from '../services/autoClose.service';
 
 const router = Router();
 
@@ -208,7 +209,37 @@ router.get('/completed', authenticateToken, async (req, res) => {
   }
 });
 
-// 4. Get single visit by ID
+// 3b. GET /api/visits/customers/all (and /api/sessions/customers/all via bridge)
+router.get('/customers/all', authenticateToken, async (req, res) => {
+  try {
+    const customers = await prisma.customer.findMany({
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        currentCreditDue: true,
+        totalVisits: true
+      }
+    });
+
+    const formatted = customers.map(c => ({
+      id: c.id,
+      name: c.name,
+      customerName: c.name,
+      phone: c.phone,
+      customerPhone: c.phone,
+      currentCreditDue: c.currentCreditDue,
+      totalVisits: c.totalVisits
+    }));
+
+    res.json(formatted);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4. Get single visit by ID (mapped with backwards-compatible session properties)
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const visit = await prisma.visit.findUnique({
@@ -241,7 +272,17 @@ router.get('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Visit not found' });
     }
 
-    res.json(visit);
+    const legacySessionCompat = {
+      ...visit,
+      customerName: visit.customer?.name || '',
+      customerPhone: visit.customer?.phone || '',
+      totalCost: visit.visitTotal,
+      totalBill: visit.visitTotal,
+      gameCost: visit.tablesTotal,
+      menuCost: visit.itemsTotal
+    };
+
+    res.json(legacySessionCompat);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -267,7 +308,10 @@ router.post('/:id/table/start', authenticateToken, async (req: any, res) => {
     if (tableId) {
       table = await prisma.table.findUnique({ where: { id: parseInt(tableId) } });
       if (!table) return res.status(404).json({ error: 'Table not found' });
-      if (table.status === 'occupied') {
+      const activePlay = await prisma.tablePlay.findFirst({
+        where: { tableId: parseInt(tableId), endTime: null }
+      });
+      if (activePlay) {
         return res.status(400).json({ error: `Table ${table.number} is already occupied` });
       }
     }
@@ -322,9 +366,9 @@ router.post('/:id/table/end', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Table play record not found' });
     }
 
-    const endTime = new Date();
+    const endTime = req.body.endTime ? new Date(req.body.endTime) : new Date();
     const durationMinutes = Math.max(1, (endTime.getTime() - new Date(play.startTime).getTime()) / 60000);
-    const hourlyRate = GAME_RATES[play.gameType] || 160;
+    const hourlyRate = (play as any)?.table?.ratePerHour || GAME_RATES[play.gameType] || 160;
 
     let finalCost = overrideCost !== undefined ? parseFloat(overrideCost) : 0;
     if (overrideCost === undefined) {
@@ -466,7 +510,7 @@ router.post('/:id/close', authenticateToken, async (req, res) => {
     for (const play of visit.tablePlays) {
       if (!play.endTime) {
         const durationMinutes = Math.max(1, (now.getTime() - new Date(play.startTime).getTime()) / 60000);
-        const hourlyRate = GAME_RATES[play.gameType] || 160;
+        const hourlyRate = (play as any)?.table?.ratePerHour || GAME_RATES[play.gameType] || 160;
         const playCost = play.gameType === 'PS4'
           ? Math.round((durationMinutes / 60) * hourlyRate * (play.playerCount || 1))
           : Math.round((durationMinutes / 60) * hourlyRate);
@@ -680,6 +724,38 @@ router.post('/quick-sale', authenticateToken, async (req: any, res) => {
       }
     });
 
+    // Auto-deduct inventory stock for quick-order items
+    try {
+      for (const item of items) {
+        const mId = parseInt(item.menuItemId);
+        const qty = parseInt(item.quantity) || 1;
+        const invItem = await prisma.inventoryItem.findUnique({
+          where: { menuItemId: mId }
+        });
+        if (invItem && qty > 0) {
+          const newStock = Math.max(0, invItem.currentStock - qty);
+          await prisma.inventoryItem.update({
+            where: { id: invItem.id },
+            data: { currentStock: newStock }
+          });
+          await prisma.inventoryTransaction.create({
+            data: {
+              itemId: invItem.id,
+              type: 'SALE',
+              quantity: -qty,
+              piecesPerBox: invItem.piecesPerBox,
+              stockBefore: invItem.currentStock,
+              stockAfter: newStock,
+              notes: `Quick Sale Order for Visit ${visitId}`,
+              staffUsername: staff.toLowerCase()
+            }
+          });
+        }
+      }
+    } catch (invErr) {
+      console.error('Failed to deduct inventory for quick-order:', invErr);
+    }
+
     broadcast({ type: 'QUICK_SALE', visit, session: visit });
     res.status(201).json(visit);
   } catch (error: any) {
@@ -703,7 +779,9 @@ router.post('/:id/switch-table', authenticateToken, async (req: any, res) => {
     const visit = await prisma.visit.findUnique({
       where: { id },
       include: {
-        tablePlays: true
+        tablePlays: {
+          include: { table: true }
+        }
       }
     });
 
@@ -719,7 +797,10 @@ router.post('/:id/switch-table', authenticateToken, async (req: any, res) => {
       return res.status(404).json({ error: 'Target table does not exist' });
     }
 
-    if (targetTable.status === 'occupied') {
+    const activePlayOnTarget = await prisma.tablePlay.findFirst({
+      where: { tableId: parseInt(toTableId), endTime: null }
+    });
+    if (activePlayOnTarget) {
       return res.status(400).json({ error: `Table ${targetTable.number} is currently occupied` });
     }
 
@@ -731,7 +812,7 @@ router.post('/:id/switch-table', authenticateToken, async (req: any, res) => {
       if (runningPlay) {
         const start = new Date(runningPlay.startTime);
         const durationHours = Math.max(0, (now.getTime() - start.getTime()) / (1000 * 60 * 60));
-        const rate = GAME_RATES[runningPlay.gameType] || 0;
+        const rate = (runningPlay as any)?.table?.ratePerHour || GAME_RATES[runningPlay.gameType] || 0;
         const cost = durationHours * rate;
 
         await tx.tablePlay.update({
@@ -888,6 +969,17 @@ router.post('/:id/send-whatsapp', authenticateToken, async (req, res) => {
     }
 
     res.json({ success: true, message: 'Receipt prepared', receiptText: msg, phone });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 12. Manual / Admin trigger for Nightly 02:00 AM Auto-Close
+router.post('/auto-close-nightly', authenticateToken, async (req, res) => {
+  try {
+    const { cutoffDate } = req.body;
+    const result = await runNightlyAutoClose(cutoffDate ? new Date(cutoffDate) : undefined);
+    res.json({ success: true, ...result });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

@@ -163,7 +163,7 @@ export const AssignTableModal: React.FC<AssignTableModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900 font-display">
-                  Assign Table {table.number}
+                  Assign {table.name || (table.gameType === 'PS4' ? `Station ${table.number}` : `Table ${table.number}`)}
                 </h2>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
                   {table.gameType} • Available
@@ -210,7 +210,7 @@ export const AssignTableModal: React.FC<AssignTableModalProps> = ({
                 autoFocus
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Type customer name (Chirag, Ayush, Tony) or phone..."
+                placeholder="Type customer name or phone number..."
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-9 py-2.5 text-xs font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all shadow-2xs"
               />
               {searching ? (
@@ -250,8 +250,9 @@ export const AssignTableModal: React.FC<AssignTableModalProps> = ({
                           <p className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                             {cust.name}
                           </p>
-                          <p className="text-[10px] text-slate-400 font-mono">
-                            📞 {cust.phone.startsWith('WALK-') ? 'Walk-in (No Phone)' : cust.phone}
+                          <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5">
+                            <Phone className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                            <span>{cust.phone.startsWith('WALK-') ? 'Walk-in (No Phone)' : cust.phone}</span>
                           </p>
                         </div>
                       </div>

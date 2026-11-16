@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../lib/api';
 import { Udhar } from '../../types';
-import { Navbar } from '../../components/Navbar';
 import {
   ArrowLeft,
   Calendar,
@@ -119,6 +118,7 @@ export default function UdharLedgerPage() {
 
       return {
         customerName: group.customerName,
+        phone: sortedEntries[0]?.session?.customerPhone || '',
         totalOutstanding,
         entries: sortedEntries,
         mostRecentUnpaidDate
@@ -169,7 +169,6 @@ export default function UdharLedgerPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 font-sans">
-      <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
 
@@ -208,7 +207,7 @@ export default function UdharLedgerPage() {
             </div>
             <input
               type="text"
-              placeholder="Search by customer name (e.g. Tony, Ayush)..."
+              placeholder="Search customer by name or phone number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="block w-full pl-10 pr-10 py-2 border border-slate-200 rounded-xl text-slate-900 bg-slate-50 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-semibold placeholder-slate-400"
@@ -285,16 +284,14 @@ export default function UdharLedgerPage() {
                             <Calendar className="h-3 w-3 text-slate-400" />
                             {formatDateTime(udhar.createdAt)}
                           </p>
-                          {udhar.sessionId && (
-                            <button
-                              onClick={() => router.push(`/sessions/${udhar.sessionId}`)}
-                              className="text-[10px] text-slate-600 hover:text-slate-900 font-bold mt-0.5 inline-flex items-center gap-0.5 font-mono"
-                              title="Go to related session"
-                            >
-                              Ref: {udhar.sessionId.slice(-10)}
-                              <ExternalLink className="h-2.5 w-2.5" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => router.push(`/customers?phone=${encodeURIComponent(group.phone || group.customerName)}`)}
+                            className="text-[10px] text-slate-600 hover:text-slate-900 font-bold mt-0.5 inline-flex items-center gap-0.5 font-mono"
+                            title="View Customer Profile & Visits"
+                          >
+                            <span>Customer Profile</span>
+                            <ExternalLink className="h-2.5 w-2.5" />
+                          </button>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <span className={`font-mono font-bold ${udhar.status === 'paid' ? 'text-emerald-700' : 'text-rose-700'}`}>

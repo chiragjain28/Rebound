@@ -162,8 +162,11 @@ export const RegisterCustomerModal: React.FC<RegisterCustomerModalProps> = ({
                 <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="font-bold">Existing Customer Found</p>
-                  <p className="text-[11px] text-amber-700 mt-0.5 font-medium">
-                    {matchingCustomer.name} • 📞 {matchingCustomer.phone}
+                  <p className="text-[11px] text-amber-700 mt-0.5 font-medium flex items-center gap-1.5">
+                    <span>{matchingCustomer.name}</span>
+                    <span>•</span>
+                    <Phone className="w-2.5 h-2.5 text-amber-700 inline shrink-0" />
+                    <span>{matchingCustomer.phone}</span>
                   </p>
                 </div>
               </div>

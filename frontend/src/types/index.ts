@@ -7,6 +7,7 @@ export interface User {
 export interface Table {
   id: number;
   number: number;
+  name?: string | null;
   gameType?: string;
   ratePerHour?: number;
   status: string; // 'available', 'occupied'

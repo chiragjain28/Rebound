@@ -18,6 +18,8 @@ import creditRoutes from './routes/credit.routes';
 import udharRoutes from './routes/udhar.routes';
 import tableRoutes from './routes/table.routes';
 import customerRoutes from './routes/customer.routes';
+import inventoryRoutes from './routes/inventory.routes';
+import { initNightlyAutoCloseJob } from './jobs/nightlyAutoClose';
 
 // Load .env.local first (dev overrides), then fallback to .env (prod defaults)
 dotenv.config({ path: '.env.local', override: true });
@@ -85,6 +87,7 @@ app.use('/api/credits', creditRoutes);
 app.use('/api/udhar', udharRoutes);
 app.use('/api/tables', tableRoutes);
 app.use('/api/customers', customerRoutes);
+app.use('/api/inventory', inventoryRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -94,8 +97,16 @@ app.get('/health', (req, res) => {
 // Initialize WebSocket server
 initWebSocket(server);
 
-server.listen(port, () => {
+server.listen(port, async () => {
   console.log(`Rebound ERP Backend listening on http://localhost:${port}`);
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    console.log('[DB] Local PostgreSQL connected successfully.');
+    initNightlyAutoCloseJob();
+  } catch (err) {
+    console.warn('[DB] Warning: Cannot reach database server (' + (err.message || err) + ').');
+    console.warn("[DB] Ensure local PostgreSQL is running (run 'npm run db:start').");
+  }
 });
 
 // Graceful shutdown handling

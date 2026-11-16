@@ -1,5 +1,6 @@
 import './globals.css'
 import { AuthProvider } from '../contexts/AuthContext'
+import { AppShell } from '../components/AppShell'
 
 export const metadata = {
   title: 'Rebound POS - Professional ERP & Billing System',
@@ -20,10 +21,11 @@ export default function RootLayout({
       </head>
       <body className="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen selection:bg-slate-200 selection:text-slate-900">
         <AuthProvider>
-          {children}
+          <AppShell>
+            {children}
+          </AppShell>
         </AuthProvider>
       </body>
     </html>
   )
 }
-

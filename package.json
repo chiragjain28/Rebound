@@ -4,9 +4,13 @@
   "private": true,
   "scripts": {
     "dev:frontend": "npm --prefix frontend run dev",
-    "dev:backend": "npm --prefix backend run dev",
+    "dev:backend": "npm run db:start && npm --prefix backend run dev",
     "install:frontend": "npm --prefix frontend install",
     "install:backend": "npm --prefix backend install",
-    "install:all": "npm run install:frontend && npm run install:backend"
+    "install:all": "npm run install:frontend && npm run install:backend",
+    "db:start": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-db.ps1",
+    "db:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/stop-db.ps1",
+    "db:push": "npm --prefix backend run prisma:push",
+    "db:seed": "npm --prefix backend run seed"
   }
 }

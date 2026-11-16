@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../lib/api';
-import { Navbar } from '../../components/Navbar';
 import { AddOrderModal } from '../../components/AddOrderModal';
 import { RecordPaymentModal } from '../../components/RecordPaymentModal';
 import { RegisterCustomerModal } from '../../components/RegisterCustomerModal';
+import { VisitPaymentCloseModal } from '../../components/VisitPaymentCloseModal';
+import { CustomerSettleBalanceModal } from '../../components/CustomerSettleBalanceModal';
 import { 
   Users, 
   Search, 
@@ -19,6 +20,7 @@ import {
   AlertCircle, 
   CheckCircle2, 
   ChevronDown, 
+  ChevronLeft,
   ChevronRight, 
   ArrowLeft,
   Coffee,
@@ -35,9 +37,11 @@ import {
   ArrowRightLeft,
   Plus,
   RefreshCw,
+  RotateCcw,
   ShoppingCart,
   ArrowRight,
-  Info
+  Info,
+  Trash2
 } from 'lucide-react';
 
 interface CustomerSummary {
@@ -55,6 +59,8 @@ interface VisitDetail {
   startTime: string;
   endTime?: string;
   totalBill: number;
+  paidAmount?: number;
+  balanceDue?: number;
   gameCost: number;
   menuCost: number;
   customAmount: number;
@@ -130,6 +136,46 @@ interface UdharBreakdownItem {
   visitStatus?: string | null;
 }
 
+interface LegacySessionItem {
+  id: string;
+  startTime: string;
+  endTime?: string;
+  status: string;
+  staffUsername?: string;
+  tablesTotal: number;
+  itemsTotal: number;
+  customAmount: number;
+  totalBill: number;
+  paidAmount: number;
+  balanceDue: number;
+  paymentStatus: string;
+  orders: {
+    id: number;
+    name: string;
+    category?: string;
+    price: number;
+    quantity: number;
+    total: number;
+    createdAt?: string;
+  }[];
+  tablePlays: {
+    id: string | number;
+    tableName: string;
+    gameType: string;
+    playerCount: number;
+    startTime: string;
+    endTime?: string;
+    cost: number;
+    createdBy?: string;
+  }[];
+  payments: {
+    id: number;
+    amount: number;
+    method: string;
+    createdAt?: string;
+  }[];
+}
+
 interface Customer360Data {
   customer: {
     id: string | number;
@@ -139,6 +185,7 @@ interface Customer360Data {
     phone: string;
     memberSince: string;
     totalVisits: number;
+    totalLegacySessions?: number;
     lifetimeSpend: number;
     lifetimePaid: number;
     currentUdharDue: number;
@@ -149,6 +196,7 @@ interface Customer360Data {
     unpaidCreditsBreakdown?: UdharBreakdownItem[];
   };
   timeline: DayTimeline[];
+  legacySessions?: LegacySessionItem[];
 }
 
 function CustomerPageContent() {
@@ -163,7 +211,9 @@ function CustomerPageContent() {
 
   const [customerData, setCustomerData] = useState<Customer360Data | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
-  const [activeTab, setActiveTab] = useState<'today' | 'history'>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'history' | 'legacy'>('today');
+  const [legacySearchTerm, setLegacySearchTerm] = useState('');
+  const [expandedLegacyIds, setExpandedLegacyIds] = useState<Set<string>>(new Set());
 
   // Modals & Actions state
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -177,14 +227,22 @@ function CustomerPageContent() {
   const [showAssignTableModal, setShowAssignTableModal] = useState(false);
   const [showSettleModal, setShowSettleModal] = useState(false);
   const [showUdharBreakdown, setShowUdharBreakdown] = useState(false);
+  const [paymentCloseModal, setPaymentCloseModal] = useState<{
+    open: boolean;
+    mode: 'full' | 'partial';
+    visitId: string;
+    visitTotal: number;
+  } | null>(null);
 
   // Available floor tables for "+ Assign Table" modal
   const [floorTables, setFloorTables] = useState<any[]>([]);
   const [loadingTables, setLoadingTables] = useState(false);
   const [assigningTableId, setAssigningTableId] = useState<number | null>(null);
 
-  // Ending table play state
+  // Ending table play & deleting state
   const [endingPlayId, setEndingPlayId] = useState<string | number | null>(null);
+  const [deletingPlayId, setDeletingPlayId] = useState<string | number | null>(null);
+  const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null);
   const [settling, setSettling] = useState(false);
   const [closingVisit, setClosingVisit] = useState(false);
 
@@ -289,6 +347,42 @@ function CustomerPageContent() {
       alert(err.message || 'Failed to stop table play');
     } finally {
       setEndingPlayId(null);
+    }
+  };
+
+  // Delete table play entry from visit
+  const handleDeleteTablePlay = async (sessionId: string, playId: string | number) => {
+    if (!confirm('Are you sure you want to delete this table play entry from this visit?')) {
+      return;
+    }
+    try {
+      setDeletingPlayId(playId);
+      await api.delete(`/visits/${sessionId}/table-play/${playId}`);
+      if (selectedPhone) {
+        await loadCustomerHistory(selectedPhone);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete table play entry');
+    } finally {
+      setDeletingPlayId(null);
+    }
+  };
+
+  // Delete order item from visit
+  const handleDeleteOrder = async (orderId: number) => {
+    if (!confirm('Are you sure you want to remove this item from this visit?')) {
+      return;
+    }
+    try {
+      setDeletingOrderId(orderId);
+      await api.delete(`/orders/${orderId}`);
+      if (selectedPhone) {
+        await loadCustomerHistory(selectedPhone);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to remove order item');
+    } finally {
+      setDeletingOrderId(null);
     }
   };
 
@@ -414,7 +508,39 @@ function CustomerPageContent() {
   const todayStr = getLocalDateStr(new Date());
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedDateManuallyChanged, setSelectedDateManuallyChanged] = useState(false);
-  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  // Calendar popover & month view state
+  const [showDatePickerPopover, setShowDatePickerPopover] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => new Date());
+  const calendarPopoverRef = useRef<HTMLDivElement>(null);
+
+  // Close calendar popover on click outside
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (calendarPopoverRef.current && !calendarPopoverRef.current.contains(event.target as Node)) {
+        setShowDatePickerPopover(false);
+      }
+    };
+    if (showDatePickerPopover) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [showDatePickerPopover]);
+
+  // Map of visited dates for fast lookup & visual highlights
+  const visitedDatesMap = useMemo(() => {
+    const map = new Map<string, DayTimeline>();
+    if (customerData?.timeline) {
+      for (const day of customerData.timeline) {
+        if (day.visits && day.visits.length > 0) {
+          map.set(day.date, day);
+        }
+      }
+    }
+    return map;
+  }, [customerData]);
 
   // Auto-sync selectedDate with active visit date or today from timeline
   useEffect(() => {
@@ -609,10 +735,9 @@ function CustomerPageContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      <Navbar />
 
       {/* TOP BAR */}
-      <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3.5 shadow-2xs sticky top-16 z-30">
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-8 py-3.5 shadow-sm sticky top-14 md:top-0 z-30">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
@@ -621,7 +746,7 @@ function CustomerPageContent() {
               title="Return to Floor Plan"
             >
               <ArrowLeft className="w-4 h-4 text-slate-500" />
-              <span>← Back to Floor Plan</span>
+              <span>Back to Floor Plan</span>
             </button>
 
             {selectedPhone && (
@@ -667,7 +792,7 @@ function CustomerPageContent() {
               className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>+ Register New Customer</span>
+              <span>Register New Customer</span>
             </button>
           </div>
         </div>
@@ -702,16 +827,11 @@ function CustomerPageContent() {
                         <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                           ID: #{customerData.customer.id}
                         </span>
-                        {activeVisit && (
-                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1.5 animate-pulse">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                            Live in Lounge
-                          </span>
-                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500 font-medium mt-1.5 flex-wrap">
-                        <span className="flex items-center gap-1 font-mono">
-                          📞 {customerData.customer.phone.startsWith('WALK-') ? 'Walk-in (No Phone)' : customerData.customer.phone}
+                        <span className="flex items-center gap-1.5 font-mono">
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          <span>{customerData.customer.phone.startsWith('WALK-') ? 'Walk-in (No Phone)' : customerData.customer.phone}</span>
                         </span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
@@ -724,80 +844,195 @@ function CustomerPageContent() {
 
                         {/* CALENDAR DATE SELECTOR */}
                         <div className="flex items-center gap-2 flex-wrap">
-                          {/* Interactive Date Picker Pill */}
-                          <div 
-                            onClick={() => {
-                              try {
-                                dateInputRef.current?.showPicker();
-                              } catch {
-                                dateInputRef.current?.focus();
-                              }
-                            }}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 hover:border-blue-500 text-slate-800 text-xs font-bold cursor-pointer shadow-2xs transition-all group relative"
-                            title="Click to open calendar date picker"
-                          >
-                            <Calendar className="w-3.5 h-3.5 text-blue-600 group-hover:scale-110 transition-transform" />
-                            <span>Date: <strong className="text-slate-900 font-black">{formatDisplayDate(selectedDate)}</strong></span>
-                            {isViewingToday ? (
-                              <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-emerald-100 text-emerald-800 font-mono font-bold">
-                                Today
-                              </span>
-                            ) : (
-                              <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-blue-100 text-blue-800 font-mono font-bold">
-                                Selected Date
-                              </span>
-                            )}
-                            <ChevronDown className="w-3 h-3 text-slate-400 group-hover:text-slate-700" />
-
-                            <input
-                              ref={dateInputRef}
-                              id="customer-date-picker"
-                              type="date"
-                              value={selectedDate}
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  setSelectedDate(e.target.value);
-                                  setSelectedDateManuallyChanged(true);
-                                  setActiveTab('today');
+                          {/* Interactive Date Picker with Custom Calendar Popover */}
+                          <div className="relative" ref={calendarPopoverRef}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!showDatePickerPopover) {
+                                  try {
+                                    const [y, m] = (selectedDate || todayStr).split('-').map(Number);
+                                    if (y && m) setCalendarMonth(new Date(y, m - 1, 1));
+                                  } catch {}
                                 }
+                                setShowDatePickerPopover((v) => !v);
                               }}
-                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full pointer-events-none"
-                            />
+                              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 hover:border-blue-500 text-slate-800 text-xs font-bold cursor-pointer shadow-2xs transition-all group"
+                              title="Click to choose a visit date from the calendar"
+                            >
+                              <Calendar className="w-3.5 h-3.5 text-blue-600 group-hover:scale-110 transition-transform" />
+                              <span>Date: <strong className="text-slate-900 font-black">{formatDisplayDate(selectedDate)}</strong></span>
+                              {isViewingToday ? (
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-emerald-100 text-emerald-800 font-mono font-bold">
+                                  Today
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] bg-blue-100 text-blue-800 font-mono font-bold">
+                                  Visited Date
+                                </span>
+                              )}
+                              <ChevronDown className={`w-3 h-3 text-slate-400 group-hover:text-slate-700 transition-transform ${showDatePickerPopover ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {/* Calendar Popover (Only Visited Dates are Active) */}
+                            {showDatePickerPopover && (
+                              <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl border border-slate-200 shadow-2xl p-4 w-72 sm:w-80 space-y-3 animate-in fade-in zoom-in-95 duration-100">
+                                {/* Month Navigation Header */}
+                                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                                    className="p-1 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
+                                    title="Previous Month"
+                                  >
+                                    <ChevronLeft className="w-4 h-4" />
+                                  </button>
+
+                                  <div className="text-center">
+                                    <span className="text-xs font-extrabold text-slate-900 font-display">
+                                      {calendarMonth.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                                    </span>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                                    className="p-1 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
+                                    title="Next Month"
+                                  >
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
+                                </div>
+
+                                {/* Month Days Grid & Footer */}
+                                {(() => {
+                                  const calYear = calendarMonth.getFullYear();
+                                  const calMonth = calendarMonth.getMonth();
+                                  const firstDayOfWeek = new Date(calYear, calMonth, 1).getDay();
+                                  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                                  const calMonthName = calendarMonth.toLocaleDateString('en-IN', { month: 'long' });
+                                  const currentMonthPrefix = `${calYear}-${String(calMonth + 1).padStart(2, '0')}`;
+
+                                  let currentMonthVisitsCount = 0;
+                                  let currentMonthVisitedDatesCount = 0;
+
+                                   visitedDatesMap.forEach((dayData, dateStr) => {
+                                     if (dateStr.startsWith(currentMonthPrefix)) {
+                                       currentMonthVisitedDatesCount++;
+                                       currentMonthVisitsCount += (dayData.visits?.length || 0);
+                                     }
+                                   });
+
+                                  return (
+                                    <>
+                                      <div className="space-y-2">
+                                        {/* Weekday headers */}
+                                        <div className="grid grid-cols-7 gap-1 text-center">
+                                          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((dayName) => (
+                                            <span key={dayName} className="text-[10px] font-bold text-slate-400 font-mono uppercase">
+                                              {dayName}
+                                            </span>
+                                          ))}
+                                        </div>
+
+                                        {/* Days grid */}
+                                        <div className="grid grid-cols-7 gap-1">
+                                          {Array.from({ length: firstDayOfWeek }).map((_, idx) => (
+                                            <div key={`blank-${idx}`} className="w-8 h-8 sm:w-9 sm:h-9" />
+                                          ))}
+
+                                          {Array.from({ length: daysInMonth }).map((_, idx) => {
+                                            const dayNum = idx + 1;
+                                            const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+                                            const hasVisited = visitedDatesMap.has(dateStr);
+                                            const isToday = dateStr === todayStr;
+                                            const isSelected = dateStr === selectedDate;
+                                            const dayTimeline = visitedDatesMap.get(dateStr);
+                                            const visitsCount = dayTimeline?.visits?.length || 0;
+                                            const isEnabled = hasVisited || isToday;
+
+                                            if (!isEnabled) {
+                                              return (
+                                                <div
+                                                  key={dateStr}
+                                                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center text-xs text-slate-300 bg-slate-50/40 select-none cursor-not-allowed"
+                                                  title="No visits on this date"
+                                                >
+                                                  {dayNum}
+                                                </div>
+                                              );
+                                            }
+
+                                            return (
+                                              <button
+                                                key={dateStr}
+                                                type="button"
+                                                onClick={() => {
+                                                  setSelectedDate(dateStr);
+                                                  setSelectedDateManuallyChanged(true);
+                                                  setActiveTab('today');
+                                                  setShowDatePickerPopover(false);
+                                                }}
+                                                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex flex-col items-center justify-center text-xs transition-all cursor-pointer relative ${
+                                                  isSelected
+                                                    ? 'bg-slate-900 text-white font-black shadow-xs ring-2 ring-slate-900 ring-offset-1 z-10'
+                                                    : hasVisited
+                                                    ? 'bg-blue-50 text-blue-900 font-bold border border-blue-200 hover:bg-blue-100 hover:border-blue-400'
+                                                    : 'border border-dashed border-emerald-400 text-emerald-800 hover:bg-emerald-50 font-bold'
+                                                }`}
+                                                title={
+                                                  hasVisited
+                                                    ? `${visitsCount} visit${visitsCount > 1 ? 's' : ''} on ${formatDisplayDate(dateStr)}`
+                                                    : 'Today (No visits recorded yet)'
+                                                }
+                                              >
+                                                <span className="leading-none">{dayNum}</span>
+                                                {hasVisited && (
+                                                  <span
+                                                    className={`w-1 h-1 rounded-full mt-0.5 ${
+                                                      isSelected ? 'bg-blue-400' : 'bg-blue-600'
+                                                    }`}
+                                                  />
+                                                )}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+
+                                      {/* Popover Legend with Month-wise visit count */}
+                                      <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="w-2 h-2 rounded-full bg-blue-600 inline-block"></span>
+                                          <span className="font-semibold text-slate-700">
+                                            {currentMonthVisitsCount > 0
+                                              ? `${currentMonthVisitsCount} visit${currentMonthVisitsCount !== 1 ? 's' : ''} in ${calMonthName}`
+                                              : `0 visits in ${calMonthName}`}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-slate-400">
+                                          <span className="w-2 h-2 rounded-sm bg-slate-100 border border-slate-200 inline-block"></span>
+                                          <span>Disabled (No Visit)</span>
+                                        </div>
+                                      </div>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
                           </div>
 
-                          {/* Quick past dates switcher if available */}
-                          {customerData?.timeline && customerData.timeline.length > 1 && (
-                            <select
-                              value={selectedDate}
-                              onChange={(e) => {
-                                setSelectedDate(e.target.value);
-                                setSelectedDateManuallyChanged(true);
-                                setActiveTab('today');
-                              }}
-                              className="px-2.5 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium cursor-pointer shadow-2xs transition-all"
-                              title="Quickly switch between past visit dates"
-                            >
-                              <option value={todayStr}>Today ({formatDisplayDate(todayStr)})</option>
-                              {customerData.timeline
-                                .filter(d => d.date !== todayStr)
-                                .map(d => (
-                                  <option key={d.date} value={d.date}>
-                                    {formatDisplayDate(d.date)} ({d.visits.length} visit{d.visits.length > 1 ? 's' : ''})
-                                  </option>
-                                ))}
-                            </select>
-                          )}
-
+                          {/* Reset to Today Button */}
                           {!isViewingToday && (
                             <button
                               onClick={() => {
                                 setSelectedDate(todayStr);
                                 setSelectedDateManuallyChanged(false);
                               }}
-                              className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 border border-blue-200"
+                              className="px-2.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 border border-blue-200 shadow-2xs"
                               title="Reset view back to today"
                             >
-                              <span>↺</span>
+                              <RotateCcw className="w-3 h-3" />
                               <span>Reset to Today</span>
                             </button>
                           )}
@@ -805,33 +1040,11 @@ function CustomerPageContent() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Actions for this customer */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        loadFloorTables();
-                        setShowAssignTableModal(true);
-                      }}
-                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
-                    >
-                      <Gamepad2 className="w-3.5 h-3.5" />
-                      <span>+ Assign Table</span>
-                    </button>
-
-                    <button
-                      onClick={handleOpenAddOrder}
-                      className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 rounded-xl text-xs font-bold shadow-2xs flex items-center gap-1.5 transition-all"
-                    >
-                      <Coffee className="w-3.5 h-3.5 text-slate-500" />
-                      <span>+ Add Items</span>
-                    </button>
-                  </div>
                 </div>
 
-                {/* 4 KPI Metrics */}
+                {/* 4 Clean Customer KPI Metrics */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {/* Total Lifetime Udhar Card */}
+                  {/* Card 1: Total Unpaid (Udhar) */}
                   <div className={`p-4 rounded-xl border flex flex-col justify-between ${
                     customerData.customer.currentUdharDue > 0 
                       ? 'bg-rose-50/70 border-rose-200 text-rose-900' 
@@ -840,7 +1053,7 @@ function CustomerPageContent() {
                     <div>
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider block font-mono">
-                          Total Outstanding Credit
+                          Total Unpaid (Udhar)
                         </span>
                         <button
                           type="button"
@@ -850,7 +1063,7 @@ function CustomerPageContent() {
                               ? 'bg-rose-200/80 hover:bg-rose-300 text-rose-900'
                               : 'bg-emerald-200/80 hover:bg-emerald-300 text-emerald-900'
                           }`}
-                          title="Click to view dates & visits breakdown of outstanding balance"
+                          title="Click (i) to view dates breakdown of unpaid balance"
                         >
                           <Info className="w-3.5 h-3.5" />
                         </button>
@@ -895,11 +1108,11 @@ function CustomerPageContent() {
                     )}
                   </div>
 
-                  {/* Today / Selected Date Total Bill */}
+                  {/* Card 2: Today / Selected Date Spend */}
                   <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
                     <div>
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-mono">
-                        {isViewingToday ? "Today's Total Bill" : `Bill on ${formatDisplayDate(selectedDate)}`}
+                        {isViewingToday ? "Today's Spend" : `Spend on ${formatDisplayDate(selectedDate)}`}
                       </span>
                       <span className="text-xl font-extrabold text-slate-900 mt-1 block font-display">
                         ₹{dayTotalBilled.toFixed(2)}
@@ -910,154 +1123,164 @@ function CustomerPageContent() {
                     </span>
                   </div>
 
-                  {/* Previous Days Outstanding Card (Shown if outstanding > 0, otherwise shows Lifetime Spend) */}
-                  {previousDaysOutstanding > 0 ? (
-                    <div className="p-4 rounded-xl border bg-amber-50/60 border-amber-200 text-amber-950 flex flex-col justify-between">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider block font-mono text-amber-800">
-                          Past Days Outstanding
-                        </span>
-                        <span className="text-xl font-extrabold mt-1 block font-display text-amber-900">
-                          ₹{previousDaysOutstanding.toFixed(2)}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-amber-700 font-semibold mt-2 block">
-                        Unpaid prior days
+                  {/* Card 3: Lifetime Spend */}
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-mono">
+                        Lifetime Spend
+                      </span>
+                      <span className="text-xl font-extrabold text-slate-900 mt-1 block font-display">
+                        ₹{(customerData.customer.lifetimeSpend || 0).toFixed(2)}
                       </span>
                     </div>
-                  ) : (
-                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
-                      <div>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block font-mono">
-                          Lifetime Spend
-                        </span>
-                        <span className="text-xl font-extrabold text-slate-900 mt-1 block font-display">
-                          ₹{(customerData.customer.lifetimeSpend || 0).toFixed(2)}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-emerald-600 font-semibold mt-2 block">
-                        ✓ All prior visits settled
-                      </span>
-                    </div>
-                  )}
+                    <span className="text-[10px] text-slate-400 font-semibold mt-2 block">
+                      Total lounge expenditure
+                    </span>
+                  </div>
 
-                  {/* Net Payable Now */}
+                  {/* Card 4: Total Visits */}
                   <div className="p-4 rounded-xl bg-slate-900 text-white flex flex-col justify-between shadow-xs">
                     <div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">
-                        Net Payable Now
+                        Visit History
                       </span>
                       <span className="text-xl font-black text-white mt-1 block font-display">
-                        ₹{netBalanceDueNow.toFixed(2)}
+                        {customerData.customer.totalVisits} Visits
                       </span>
                     </div>
                     <span className="text-[10px] text-slate-300 font-medium mt-2 block">
-                      {netBalanceDueNow > 0 ? "Today's Due + Past Balance" : 'Fully Settled ✓'}
+                      {customerData.legacySessions && customerData.legacySessions.length > 0 ? (
+                        <span className="text-purple-300 font-bold">
+                          +{customerData.legacySessions.length} Past Sessions in Archive
+                        </span>
+                      ) : (
+                        <span>Member since {new Date(customerData.customer.memberSince).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
+                      )}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* View Switcher Tabs */}
-              <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                <button
-                  onClick={() => setActiveTab('today')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                    activeTab === 'today'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>
-                    {isViewingToday
-                      ? "Today's Activity"
-                      : `Activity on ${formatDisplayDate(selectedDate)}`}
-                  </span>
-                  {isViewingToday && activeVisit && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500 text-white font-mono">
-                      Live
+              {/* View Switcher Tabs & Quick Action Buttons */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={() => setActiveTab('today')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                      activeTab === 'today'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>
+                      {isViewingToday
+                        ? "Today's Activity"
+                        : `Activity on ${formatDisplayDate(selectedDate)}`}
                     </span>
-                  )}
-                </button>
+                  </button>
 
-                <button
-                  onClick={() => setActiveTab('history')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-                    activeTab === 'history'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>History</span>
-                </button>
+                  <button
+                    onClick={() => setActiveTab('history')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                      activeTab === 'history'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Visit Timeline</span>
+                    {customerData.timeline.length > 0 && (
+                      <span className={`px-2 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                        activeTab === 'history' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {customerData.timeline.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('legacy')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                      activeTab === 'legacy'
+                        ? 'bg-purple-900 text-white shadow-xs'
+                        : 'bg-white border border-purple-200 text-purple-700 hover:bg-purple-50 hover:text-purple-900'
+                    }`}
+                  >
+                    <FileText className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Past Session Archive</span>
+                    {customerData.legacySessions && customerData.legacySessions.length > 0 && (
+                      <span className={`px-2 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                        activeTab === 'legacy' ? 'bg-purple-800 text-purple-200' : 'bg-purple-100 text-purple-800'
+                      }`}>
+                        {customerData.legacySessions.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Direct Action Buttons */}
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={() => {
+                      loadFloorTables();
+                      setShowAssignTableModal(true);
+                    }}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-emerald-400" />
+                    <span>Assign Table</span>
+                  </button>
+
+                  <button
+                    onClick={handleOpenAddOrder}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-white" />
+                    <span>Add Item / Order</span>
+                  </button>
+                </div>
               </div>
 
-              {/* TAB 1: ACTIVE / SELECTED DATE TABLES, CAFE ORDERS & BILL SUMMARY */}
+              {/* TAB 1: TABLES, CAFE ORDERS & BILL SUMMARY */}
               {activeTab === 'today' && (
                 <div className="space-y-6">
 
-                  {/* VISITS SELECTOR BAR (Shown when visits exist or for today) */}
-                  <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono mr-1">
-                        {isViewingToday ? "Today's Visits:" : "Visits on Date:"}
+                  {/* SECONDARY VISIT SWITCHER (Only shown when there are 2+ visits on this date) */}
+                  {currentVisits.length > 1 && (
+                    <div className="flex items-center gap-2 px-1">
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider font-mono mr-1">
+                        Switch Visit:
                       </span>
+                      {currentVisits.map((v, idx) => {
+                        const vNum = idx + 1;
+                        const isSelected = selectedVisit?.id === v.id;
+                        const startTimeStr = new Date(v.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-                      {currentVisits.length === 0 ? (
-                        <span className="text-xs text-slate-400 italic">No visits recorded</span>
-                      ) : (
-                        currentVisits.map((v, idx) => {
-                          const vNum = idx + 1;
-                          const isActive = v.status === 'active';
-                          const isSelected = selectedVisit?.id === v.id;
-                          const startTimeStr = new Date(v.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                          const endTimeStr = v.endTime ? new Date(v.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
-
-                          return (
-                            <button
-                              key={v.id}
-                              onClick={() => setSelectedVisitId(v.id)}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                                isSelected
-                                  ? 'bg-slate-900 text-white shadow-xs ring-2 ring-slate-900/10'
-                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-                              }`}
-                            >
-                              <span>Visit {vNum}</span>
-                              <span className={`text-[10px] font-mono ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                                ({startTimeStr}{endTimeStr ? ` - ${endTimeStr}` : ''})
+                        return (
+                          <button
+                            key={v.id}
+                            onClick={() => setSelectedVisitId(v.id)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                              isSelected
+                                ? 'bg-slate-900 text-white shadow-xs'
+                                : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                            }`}
+                          >
+                            <span>Visit {vNum}</span>
+                            <span className={`text-[10px] font-mono ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                              ({startTimeStr})
+                            </span>
+                            {!v.endTime && (
+                              <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-500 text-white font-mono font-bold">
+                                Open
                               </span>
-                              {isActive ? (
-                                <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-500 text-white font-mono font-bold animate-pulse">
-                                  Live
-                                </span>
-                              ) : (
-                                <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold ${
-                                  isSelected ? 'bg-slate-700 text-slate-200' : 'bg-slate-200 text-slate-600'
-                                }`}>
-                                  Closed
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })
-                      )}
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
-
-                    {/* Button to start a new visit if viewing today and no active visit is running */}
-                    {isViewingToday && !activeVisit && (
-                      <button
-                        onClick={handleStartNewVisit}
-                        disabled={startingNewVisit}
-                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer self-start sm:self-auto"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>{startingNewVisit ? 'Starting...' : '+ Start New Visit'}</span>
-                      </button>
-                    )}
-                  </div>
+                  )}
 
                   {/* ====================================================================== */}
                   {/* SINGLE BIG SECTION: SELECTED VISIT ACTIVITY & VISIT BILL SUMMARY       */}
@@ -1065,24 +1288,19 @@ function CustomerPageContent() {
                   {selectedVisit ? (
                     <div id="selected-visit-container" className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden space-y-0 scroll-mt-24">
                       
-                      {/* VISIT HEADER STRIP: Title, Live/Closed Badge, Timestamps */}
-                      <div className={`px-6 py-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                        isSelectedVisitActive
-                          ? 'bg-blue-50/70 border-blue-200 text-blue-950'
-                          : 'bg-slate-50 border-slate-200 text-slate-700'
-                      }`}>
+                      {/* VISIT HEADER STRIP: Title, Status Badge, Timestamps */}
+                      <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-slate-700">
                         <div className="flex items-center gap-2.5">
                           <span className="font-extrabold text-slate-900 font-display text-base">
                             Visit {selectedVisitNumber} Activity
                           </span>
-                          {isSelectedVisitActive ? (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono flex items-center gap-1.5 animate-pulse">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                              Live &amp; Editable
+                          {!selectedVisit.endTime ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
+                              Open
                             </span>
                           ) : (
                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 font-mono">
-                              🔒 Closed (Read-Only)
+                              Closed
                             </span>
                           )}
                         </div>
@@ -1125,168 +1343,69 @@ function CustomerPageContent() {
                         </div>
                       </div>
 
-                      {/* VISIT INTERNAL CONTENT (Items, Tables, and Visit Bill) */}
-                      <div className="p-6 space-y-6">
+                      {/* VISIT INTERNAL CONTENT (Side-by-Side: Tables on Left, Items on Right, and Compact Bill) */}
+                      <div className="p-5 space-y-4">
 
-                        {/* SUB-SECTION 1: CAFE & REFRESHMENT ORDERS (ITEMS) */}
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-5 space-y-4">
-                          <div className="flex items-center justify-between pb-3 border-b border-slate-200/80">
-                            <div>
-                              <h3 className="text-sm font-bold text-slate-900 font-display flex items-center gap-2">
-                                <Coffee className="w-4 h-4 text-amber-700" />
-                                <span>Cafe &amp; Refreshment Orders — Visit {selectedVisitNumber}</span>
-                                <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-mono text-xs font-bold">
-                                  ₹{displayCafeSubtotal.toFixed(2)}
-                                </span>
-                              </h3>
-                              <p className="text-[11px] text-slate-400 mt-0.5">
-                                {isSelectedVisitReadOnly
-                                  ? `Orders logged during Visit ${selectedVisitNumber} (Read-Only archive)`
-                                  : `Drinks, snacks, and food logged to Visit ${selectedVisitNumber}`}
-                              </p>
+                        {/* SIDE BY SIDE: Tables on Left, Orders/Items on Right */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+
+                          {/* LEFT COLUMN: TABLE ASSIGNED / FLOOR TABLES */}
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 space-y-3">
+                            <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/80">
+                              <div>
+                                <h3 className="text-sm font-bold text-slate-900 font-display flex items-center gap-2">
+                                  <Gamepad2 className="w-4 h-4 text-blue-600" />
+                                  <span>Assigned Tables — Visit {selectedVisitNumber}</span>
+                                  <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-mono text-xs font-bold">
+                                    ₹{displayGameSubtotal.toFixed(2)}
+                                  </span>
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                  {isSelectedVisitReadOnly
+                                    ? `Tables played in Visit ${selectedVisitNumber} (Archive)`
+                                    : `Billiard, snooker & gaming stations`}
+                                </p>
+                              </div>
                             </div>
 
-                            {isSelectedVisitActive && (
-                              <button
-                                onClick={handleOpenAddOrder}
-                                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all"
-                              >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>+ Add Items</span>
-                              </button>
-                            )}
-                          </div>
+                            {displayTablePlays.length === 0 ? (
+                              <div className="py-7 text-center text-slate-400 text-xs bg-white rounded-xl border border-dashed border-slate-200">
+                                <p>No tables currently playing for <strong>{customerData.customer.name}</strong>.</p>
+                                <p className="text-[11px] text-slate-400 mt-1">Use the <strong>[+ Assign Table]</strong> button above to start a station.</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-2.5">
+                                {displayTablePlays.map((tp) => {
+                                  const isLive = !tp.endTime;
+                                  const elapsedMins = Math.floor(
+                                    (Date.now() - new Date(tp.startTime).getTime()) / (1000 * 60)
+                                  );
 
-                          {displayOrders.length === 0 ? (
-                            <div className="py-6 text-center text-slate-400 text-xs bg-white rounded-xl border border-dashed border-slate-200">
-                              <p>No cafe orders placed by <strong>{customerData.customer.name}</strong> for Visit {selectedVisitNumber}.</p>
-                              {isSelectedVisitActive && (
-                                <button
-                                  onClick={handleOpenAddOrder}
-                                  className="mt-2 px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                  <span>Add Drinks / Food</span>
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden">
-                              <table className="w-full text-xs text-left">
-                                <thead>
-                                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
-                                    <th className="py-2.5 px-3.5">Item</th>
-                                    <th className="py-2.5 px-3.5">Category</th>
-                                    <th className="py-2.5 px-3.5 text-right">Qty</th>
-                                    <th className="py-2.5 px-3.5 text-right">Price</th>
-                                    <th className="py-2.5 px-3.5 text-right">Total</th>
-                                    <th className="py-2.5 px-3.5 text-right">Time</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                  {displayOrders.map((order) => (
-                                    <tr key={order.id} className="hover:bg-slate-50 font-medium">
-                                      <td className="py-2.5 px-3.5 font-bold text-slate-900">{order.name}</td>
-                                      <td className="py-2.5 px-3.5">
-                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                          {order.category}
-                                        </span>
-                                      </td>
-                                      <td className="py-2.5 px-3.5 text-right font-mono font-bold">{order.quantity}</td>
-                                      <td className="py-2.5 px-3.5 text-right font-mono text-slate-500">₹{order.price.toFixed(2)}</td>
-                                      <td className="py-2.5 px-3.5 text-right font-mono font-bold text-slate-900">₹{order.total.toFixed(2)}</td>
-                                      <td className="py-2.5 px-3.5 text-right text-[11px] text-slate-400 font-mono">
-                                        {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* SUB-SECTION 2: FLOOR TABLES */}
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-5 space-y-4">
-                          <div className="flex items-center justify-between pb-3 border-b border-slate-200/80">
-                            <div>
-                              <h3 className="text-sm font-bold text-slate-900 font-display flex items-center gap-2">
-                                <Gamepad2 className="w-4 h-4 text-blue-600" />
-                                <span>Floor Tables — Visit {selectedVisitNumber}</span>
-                                <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-mono text-xs font-bold">
-                                  ₹{displayGameSubtotal.toFixed(2)}
-                                </span>
-                              </h3>
-                              <p className="text-[11px] text-slate-400 mt-0.5">
-                                {isSelectedVisitReadOnly
-                                  ? `Tables played during Visit ${selectedVisitNumber} (Read-Only archive)`
-                                  : `Billiard & Snooker tables assigned to Visit ${selectedVisitNumber}`}
-                              </p>
-                            </div>
-
-                            {isSelectedVisitActive && (
-                              <button
-                                onClick={() => {
-                                  loadFloorTables();
-                                  setShowAssignTableModal(true);
-                                }}
-                                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all"
-                              >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>Assign Table</span>
-                              </button>
-                            )}
-                          </div>
-
-                          {displayTablePlays.length === 0 ? (
-                            <div className="py-6 text-center text-slate-400 text-xs bg-white rounded-xl border border-dashed border-slate-200">
-                              <p>No tables assigned to <strong>{customerData.customer.name}</strong> for Visit {selectedVisitNumber}.</p>
-                              {isSelectedVisitActive && (
-                                <button
-                                  onClick={() => {
-                                    loadFloorTables();
-                                    setShowAssignTableModal(true);
-                                  }}
-                                  className="mt-2 px-3 py-1 bg-slate-900 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 cursor-pointer"
-                                >
-                                  <Play className="w-3 h-3 fill-white" />
-                                  <span>Start a Table Now</span>
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                              {displayTablePlays.map((tp) => {
-                                const isLive = !tp.endTime;
-                                const elapsedMins = Math.floor(
-                                  (Date.now() - new Date(tp.startTime).getTime()) / (1000 * 60)
-                                );
-
-                                return (
-                                  <div
-                                    key={tp.id}
-                                    className={`p-4 rounded-xl border transition-all flex flex-col justify-between ${
-                                      isLive
-                                        ? 'bg-blue-50/70 border-blue-200 shadow-xs'
-                                        : 'bg-white border-slate-200'
-                                    }`}
-                                  >
-                                    <div className="flex items-start justify-between">
-                                      <div>
-                                        <div className="flex items-center gap-2">
+                                  return (
+                                    <div
+                                      key={tp.id}
+                                      className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                                        isLive
+                                          ? 'bg-blue-50/70 border-blue-200 shadow-2xs'
+                                          : 'bg-white border-slate-200 hover:border-slate-300'
+                                      }`}
+                                    >
+                                      {/* Left Info: Table Name, Status Badge, Timestamps */}
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                           <h4 className="font-bold text-sm text-slate-900">{tp.tableName}</h4>
                                           {isLive ? (
                                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 animate-pulse font-mono">
                                               ● Running Now
                                             </span>
                                           ) : (
-                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 font-mono">
+                                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 font-mono">
                                               Completed
                                             </span>
                                           )}
                                         </div>
-                                        <p className="text-[11px] text-slate-500 font-mono mt-1">
-                                          Started: {new Date(tp.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                                          Started: <strong className="text-slate-800">{new Date(tp.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
                                           {tp.endTime ? (
                                             <>
                                               {` · Ended: ${new Date(tp.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
@@ -1306,352 +1425,264 @@ function CustomerPageContent() {
                                         </p>
                                       </div>
 
-                                      <div className="text-right">
-                                        <span className="text-base font-extrabold text-slate-900 font-display block">
-                                          ₹{tp.cost.toFixed(2)}
-                                        </span>
-                                        {isLive && (
-                                          <span className="text-[10px] text-blue-700 font-bold font-mono">
-                                            ⏱ {elapsedMins} mins elapsed
+                                      {/* Right Info & Actions: Cost, Duration, Stop (if live), Trash Icon */}
+                                      <div className="flex items-center gap-3 shrink-0">
+                                        <div className="text-right">
+                                          <span className="text-base font-extrabold text-slate-900 font-display block leading-tight">
+                                            ₹{tp.cost.toFixed(2)}
                                           </span>
-                                        )}
-                                      </div>
-                                    </div>
+                                          {isLive ? (
+                                            <span className="text-[10px] text-blue-700 font-bold font-mono">
+                                              ⏱ {elapsedMins} mins elapsed
+                                            </span>
+                                          ) : (
+                                            <span className="text-[10px] text-slate-400 font-mono">
+                                              {Math.max(1, Math.round((new Date(tp.endTime!).getTime() - new Date(tp.startTime).getTime()) / 60000))} mins
+                                            </span>
+                                          )}
+                                        </div>
 
-                                    {isLive && isSelectedVisitActive && selectedVisit && (
-                                      <div className="mt-4 pt-3 border-t border-blue-200/60 flex items-center justify-end gap-2">
+                                        {isLive && isSelectedVisitActive && selectedVisit && (
+                                          <button
+                                            onClick={() => handleStopTablePlay(selectedVisit.id, tp.id)}
+                                            disabled={endingPlayId === tp.id}
+                                            className="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
+                                            title="Stop Table Play"
+                                          >
+                                            <Square className="w-3 h-3 fill-white" />
+                                            <span className="hidden sm:inline">{endingPlayId === tp.id ? 'Stopping...' : 'Stop'}</span>
+                                          </button>
+                                        )}
+
+                                        {/* Compact Delete Table Button - Icon Only */}
                                         <button
-                                          onClick={() => handleStopTablePlay(selectedVisit.id, tp.id)}
-                                          disabled={endingPlayId === tp.id}
-                                          className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs transition-all disabled:opacity-50 cursor-pointer"
+                                          onClick={() => handleDeleteTablePlay(selectedVisit.id, tp.id)}
+                                          disabled={deletingPlayId === tp.id}
+                                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                                          title="Delete Table Entry"
                                         >
-                                          <Square className="w-3 h-3 fill-white" />
-                                          <span>{endingPlayId === tp.id ? 'Stopping...' : 'Stop Table Play'}</span>
+                                          {deletingPlayId === tp.id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
+                                          ) : (
+                                            <Trash2 className="w-4 h-4" />
+                                          )}
                                         </button>
                                       </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* RIGHT COLUMN: ITEMS / CAFE ORDERS */}
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 space-y-3">
+                            <div className="flex items-center justify-between pb-2.5 border-b border-slate-200/80">
+                              <div>
+                                <h3 className="text-sm font-bold text-slate-900 font-display flex items-center gap-2">
+                                  <Coffee className="w-4 h-4 text-amber-700" />
+                                  <span>Items Ordered — Visit {selectedVisitNumber}</span>
+                                  <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-mono text-xs font-bold">
+                                    ₹{displayCafeSubtotal.toFixed(2)}
+                                  </span>
+                                </h3>
+                                <p className="text-[11px] text-slate-400 mt-0.5">
+                                  {isSelectedVisitReadOnly
+                                    ? `Items logged during Visit ${selectedVisitNumber} (Archive)`
+                                    : `Drinks, snacks, and food logged to Visit ${selectedVisitNumber}`}
+                                </p>
+                              </div>
                             </div>
-                          )}
+
+                            {displayOrders.length === 0 ? (
+                              <div className="py-7 text-center text-slate-400 text-xs bg-white rounded-xl border border-dashed border-slate-200">
+                                <p>No items ordered yet for <strong>{customerData.customer.name}</strong>.</p>
+                                <p className="text-[11px] text-slate-400 mt-1">Use the <strong>[+ Add Item / Order]</strong> button above to add drinks or snacks.</p>
+                              </div>
+                            ) : (
+                              <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden">
+                                <table className="w-full text-xs text-left">
+                                  <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                                      <th className="py-2.5 px-3">Item</th>
+                                      <th className="py-2.5 px-2.5 text-right">Qty</th>
+                                      <th className="py-2.5 px-2.5 text-right">Price</th>
+                                      <th className="py-2.5 px-2.5 text-right">Total</th>
+                                      <th className="py-2.5 px-2.5 text-right">Time</th>
+                                      {isSelectedVisitActive && (
+                                        <th className="py-2.5 px-2 text-center w-8"></th>
+                                      )}
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100">
+                                    {displayOrders.map((order) => (
+                                      <tr key={order.id} className="hover:bg-slate-50 font-medium">
+                                        <td className="py-2.5 px-3 font-bold text-slate-900">{order.name}</td>
+                                        <td className="py-2.5 px-2.5 text-right font-mono font-bold">{order.quantity}</td>
+                                        <td className="py-2.5 px-2.5 text-right font-mono text-slate-500">₹{order.price.toFixed(2)}</td>
+                                        <td className="py-2.5 px-2.5 text-right font-mono font-bold text-slate-900">₹{order.total.toFixed(2)}</td>
+                                        <td className="py-2.5 px-2.5 text-right text-[10px] text-slate-400 font-mono">
+                                          {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </td>
+                                        {isSelectedVisitActive && (
+                                          <td className="py-2.5 px-2 text-center">
+                                            <button
+                                              onClick={() => handleDeleteOrder(order.id)}
+                                              disabled={deletingOrderId === order.id}
+                                              title="Remove this item"
+                                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                          </td>
+                                        )}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+
                         </div>
 
-                        {/* SUB-SECTION 3: BILL SUMMARY FOR THIS VISIT (VERTICAL LINES RECEIPT) */}
-                        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+                        {/* COMPACT BILL SUMMARY FOR THIS VISIT */}
+                        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3">
                           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <div className="flex items-center gap-2">
                               <Receipt className="w-4 h-4 text-slate-700" />
                               <h3 className="text-sm font-bold text-slate-900 font-display">
-                                Bill Summary
+                                Bill Summary — Visit {selectedVisitNumber}
                               </h3>
                             </div>
 
                             {/* Paid or Not Paid Status Badge */}
-                            {selectedVisitTotal === 0 && totalCarriedForwardToThisVisit === 0 ? (
+                            {selectedVisitTotal === 0 ? (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 font-mono">
                                 ₹0.00
                               </span>
-                            ) : visitNetBalanceDue === 0 ? (
+                            ) : selectedVisitBalanceDue === 0 ? (
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
                                 ✓ Paid in Full
                               </span>
                             ) : !isSelectedVisitActive ? (
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 font-mono">
-                                ● Unpaid (Transferred to Next Visit · Due ₹{selectedVisitBalanceDue.toFixed(2)})
+                                ● Unpaid (Due ₹{selectedVisitBalanceDue.toFixed(2)})
                               </span>
                             ) : (
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 font-mono">
-                                ● Not Paid (Due ₹{visitNetBalanceDue.toFixed(2)})
+                                ● Not Paid (Due ₹{selectedVisitBalanceDue.toFixed(2)})
                               </span>
                             )}
                           </div>
 
-                          {/* VERTICAL ONLY LINES */}
-                          <div className="space-y-2 text-xs">
-                            {/* Category-wise items totals (e.g. Cigarettes Total, Cafe Total) */}
-                            {Object.keys(ordersByCategory).length > 0 ? (
-                              Object.entries(ordersByCategory).map(([catName, catTotal]) => (
-                                <div key={catName} className="flex items-center justify-between py-1 text-slate-700 border-b border-slate-100">
-                                  <span className="capitalize font-medium text-slate-700">{catName} Total</span>
-                                  <span className="font-mono font-bold text-slate-900">₹{catTotal.toFixed(2)}</span>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="flex items-center justify-between py-1 text-slate-400 border-b border-slate-100">
-                                <span className="font-medium">Items Total</span>
-                                <span className="font-mono">₹0.00</span>
-                              </div>
-                            )}
-
-                            {/* Floor Tables Total Line */}
-                            <div className="flex items-center justify-between py-1 text-slate-700 border-b border-slate-100">
-                              <span className="font-medium">Tables Total</span>
+                          {/* 2-COLUMN BREAKDOWN */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-xs py-1 border-b border-slate-100">
+                            <div className="flex items-center justify-between py-0.5 text-slate-600">
+                              <span>Tables Total:</span>
                               <span className="font-mono font-bold text-slate-900">₹{displayGameSubtotal.toFixed(2)}</span>
                             </div>
 
-                            {/* Current Visit */}
-                            <div className="flex items-center justify-between py-1 text-slate-700 font-medium border-b border-slate-100">
-                              <span>Current Visit</span>
-                              <span className="font-mono font-bold text-slate-900">₹{selectedVisitTotal.toFixed(2)}</span>
+                            <div className="flex items-center justify-between py-0.5 text-slate-600">
+                              <span>Items Total:</span>
+                              <span className="font-mono font-bold text-slate-900">₹{displayCafeSubtotal.toFixed(2)}</span>
                             </div>
 
-                            {/* Carried Forward from previous visit(s) of today or prior debt */}
-                            {totalCarriedForwardToThisVisit > 0 && (
-                              <div className="flex items-center justify-between py-1.5 px-3 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-950">
-                                <span className="font-semibold text-xs flex items-center gap-1.5">
-                                  <span>↩</span>
-                                  <span>
-                                    Carried Forward ({priorVisitsTodayUnpaid > 0 ? `Unpaid from Visit ${selectedVisitIndex}` : 'Previous Outstanding'})
-                                  </span>
-                                </span>
-                                <span className="font-mono font-bold text-rose-700 text-xs">
-                                  + ₹{totalCarriedForwardToThisVisit.toFixed(2)}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Total Amount Payable */}
-                            <div className="flex items-center justify-between py-2.5 font-bold text-slate-900 border-b border-slate-200">
-                              <span className="text-sm">
-                                {totalCarriedForwardToThisVisit > 0 ? 'Total Amount Payable' : 'Total Amount'}
-                              </span>
-                              <span className="font-mono text-base font-extrabold text-slate-900">
-                                ₹{visitTotalPayable.toFixed(2)}
-                              </span>
+                            <div className="flex items-center justify-between py-1 text-slate-900 font-bold border-t border-slate-100 md:border-t-0">
+                              <span>Total Visit Bill:</span>
+                              <span className="font-mono text-sm font-extrabold text-slate-900">₹{selectedVisitTotal.toFixed(2)}</span>
                             </div>
 
-                            {/* Paid Amount if any */}
-                            {selectedVisitPaid > 0 && (
-                              <div className="flex items-center justify-between py-1 text-slate-500 font-medium">
-                                <span>Paid for this Visit</span>
-                                <span className="font-mono text-emerald-700 font-bold">- ₹{selectedVisitPaid.toFixed(2)}</span>
-                              </div>
-                            )}
+                            <div className="flex items-center justify-between py-1 font-bold">
+                              <span className="text-rose-700">Balance Due:</span>
+                              <span className="font-mono text-sm font-black text-rose-700">₹{selectedVisitBalanceDue.toFixed(2)}</span>
+                            </div>
+                          </div>
 
-                            {/* Net Balance Due */}
-                            {visitNetBalanceDue > 0 && (
-                              <div className="flex items-center justify-between py-1 text-rose-700 font-bold">
-                                <span>Balance Due</span>
-                                <span className="font-mono font-extrabold text-sm">₹{visitNetBalanceDue.toFixed(2)}</span>
-                              </div>
-                            )}
-
-                            {/* BELOW THAT: PAY NOW AND CLOSE VISIT (ALWAYS ENABLED) */}
-                            {isSelectedVisitActive ? (
-                              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
-                                {visitNetBalanceDue > 0 ? (
+                          {/* FULL PAYMENT & PARTIAL PAYMENT ACTION BUTTONS */}
+                          {isSelectedVisitActive ? (
+                            <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              {selectedVisitBalanceDue > 0 ? (
+                                <div className="flex items-center gap-2.5 flex-wrap">
                                   <button
+                                    type="button"
                                     onClick={() => {
-                                      setPaymentSessionTarget({
-                                        sessionId: selectedVisit.id,
-                                        maxAmount: visitNetBalanceDue,
-                                        title: `Pay Bill for Visit ${selectedVisitNumber}`
+                                      setPaymentCloseModal({
+                                        open: true,
+                                        mode: 'full',
+                                        visitId: selectedVisit.id,
+                                        visitTotal: selectedVisitBalanceDue
                                       });
-                                      setShowRecordPaymentModal(true);
                                     }}
-                                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2"
+                                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2"
+                                  >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    <span>Full Payment (₹{selectedVisitBalanceDue.toFixed(2)})</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPaymentCloseModal({
+                                        open: true,
+                                        mode: 'partial',
+                                        visitId: selectedVisit.id,
+                                        visitTotal: selectedVisitBalanceDue
+                                      });
+                                    }}
+                                    className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2"
                                   >
                                     <CreditCard className="w-4 h-4" />
-                                    <span>Pay Now (₹{visitNetBalanceDue.toFixed(2)})</span>
+                                    <span>Partial Payment</span>
                                   </button>
-                                ) : (
-                                  <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-bold">
-                                    <Check className="w-4 h-4" />
-                                    <span>Paid in Full</span>
-                                  </div>
-                                )}
-
-                                {/* CLOSE VISIT BUTTON: Always clickable, prompts carry-forward if unpaid */}
-                                <button
-                                  onClick={() => handleCloseVisit(selectedVisit.id, visitNetBalanceDue, selectedVisitNumber)}
-                                  disabled={closingVisit}
-                                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2"
-                                >
-                                  <Check className="w-4 h-4 text-emerald-400" />
-                                  <span>{closingVisit ? 'Closing...' : 'Close Visit'}</span>
-                                </button>
-                              </div>
-                            ) : (
-                              selectedVisit.endTime && (
-                                <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 font-mono">
-                                  ✓ Visit Closed at {new Date(selectedVisit.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  {selectedVisitBalanceDue > 0 && (
-                                    <span className="text-amber-700 font-bold ml-2">
-                                      (Unpaid balance of ₹{selectedVisitBalanceDue.toFixed(2)} was transferred to next visit)
-                                    </span>
-                                  )}
                                 </div>
-                              )
-                            )}
-                          </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCloseVisit(selectedVisit.id, 0, selectedVisitNumber)}
+                                    disabled={closingVisit}
+                                    className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2"
+                                  >
+                                    <Check className="w-4 h-4 text-emerald-400" />
+                                    <span>{closingVisit ? 'Closing...' : 'Close Visit'}</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            selectedVisit.endTime && (
+                              <div className="pt-2 text-xs text-slate-500 font-mono flex items-center gap-2 flex-wrap">
+                                <span>✓ Visit Closed at {new Date(selectedVisit.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                {selectedVisitBalanceDue > 0 ? (
+                                  <span className="text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                                    Unpaid ₹{selectedVisitBalanceDue.toFixed(2)} recorded in Total Unpaid (Udhar)
+                                  </span>
+                                ) : (
+                                  <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                    Paid in Full
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          )}
                         </div>
 
                       </div>
                     </div>
                   ) : (
-                    <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center text-slate-400 text-xs">
-                      No visits recorded for this day.
+                    <div className="bg-white rounded-3xl border border-slate-200 p-10 text-center space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto">
+                        <Coffee className="w-6 h-6 text-slate-400" />
+                      </div>
+                      <h3 className="font-bold text-sm text-slate-900 font-display">
+                        No visits recorded {isViewingToday ? 'today' : `on ${formatDisplayDate(selectedDate)}`}
+                      </h3>
+                      <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                        Use the <strong>[+ Assign Table]</strong> or <strong>[+ Add Item / Order]</strong> buttons above to start activity. A visit is automatically created.
+                      </p>
                     </div>
                   )}
-
-                  {/* ====================================================================== */}
-                  {/* SEPARATE SECTION OUTSIDE VISIT: BILL OF ALL VISITS (CUMULATIVE SUMMARY) */}
-                  {/* ====================================================================== */}
-                  <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-xs space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
-                      <div className="flex items-center gap-2">
-                        <Receipt className="w-5 h-5 text-slate-800" />
-                        <div>
-                          <h3 className="text-base font-bold text-slate-900 font-display">
-                            Bill of All Visits {isViewingToday ? "(Today's Cumulative Summary)" : `(${formatDisplayDate(selectedDate)})`}
-                          </h3>
-                          <p className="text-[11px] text-slate-400">
-                            Cumulative breakdown of all visits, prior day outstanding balances, and final checkout
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Visits Breakdown List */}
-                    <div className="space-y-2.5 text-xs">
-                      <span className="text-[10px] font-bold uppercase tracking-wider font-mono text-slate-400 block">
-                        Visits Breakdown:
-                      </span>
-
-                      {currentVisits.length === 0 ? (
-                        <div className="text-slate-400 italic text-xs py-2">
-                          No visits recorded for this day.
-                        </div>
-                      ) : (
-                        currentVisits.map((v, idx) => {
-                          const vNum = idx + 1;
-                          const vBill = v.totalBill;
-                          const vPaid = v.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-                          const vBalance = Math.max(0, vBill - vPaid);
-                          const isPaid = vBalance === 0 && vBill > 0;
-                          const isFree = vBill === 0;
-
-                          return (
-                            <div
-                              key={v.id}
-                              onClick={() => setSelectedVisitId(v.id)}
-                              className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
-                                selectedVisit?.id === v.id
-                                  ? 'bg-blue-50/70 border-blue-300 ring-2 ring-blue-500/20'
-                                  : 'border-slate-200 hover:bg-slate-50'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5 flex-wrap">
-                                <span className="font-bold text-slate-900 text-sm">
-                                  Visit {vNum}
-                                </span>
-                                <span className="text-[11px] text-slate-500 font-mono">
-                                  ({new Date(v.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  {v.endTime ? ` - ${new Date(v.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ' · Live'})
-                                </span>
-
-                                {isPaid ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
-                                    ✓ Paid
-                                  </span>
-                                ) : isFree ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 font-mono">
-                                    ₹0.00
-                                  </span>
-                                ) : v.status !== 'active' ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 font-mono">
-                                    ● Unpaid (Transferred · ₹{vBalance.toFixed(2)})
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 font-mono">
-                                    ● Not Paid (Due ₹{vBalance.toFixed(2)})
-                                  </span>
-                                )}
-                              </div>
-
-                              <div className="font-mono font-bold text-slate-900 text-sm">
-                                ₹{vBill.toFixed(2)}
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-
-                      {/* Total Amount of All Visits */}
-                      <div className="flex items-center justify-between py-2 border-t border-slate-200 font-bold text-slate-900 pt-3">
-                        <span className="text-slate-700">Total Amount of All Visits</span>
-                        <span className="font-mono text-sm font-extrabold text-slate-900">
-                          ₹{dayTotalBilled.toFixed(2)}
-                        </span>
-                      </div>
-
-                      {/* Previous Outstanding Bar (ONLY shown if positive; completely hidden otherwise) */}
-                      {previousDaysOutstanding > 0 && (
-                        <div className="flex items-center justify-between py-2 px-3.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-950 font-medium">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs">⚠️</span>
-                            <span className="text-xs font-semibold">Previous Outstanding (Past Days)</span>
-                          </div>
-                          <span className="font-mono font-bold text-xs text-rose-700">
-                            + ₹{previousDaysOutstanding.toFixed(2)}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Today's Total Payable */}
-                      <div className="flex items-center justify-between py-2 border-t border-slate-200 font-bold text-slate-900">
-                        <span className="uppercase text-[11px] tracking-wide text-slate-600">
-                          {isViewingToday ? "Today's Total Payable" : "Total Payable"}
-                        </span>
-                        <span className="font-mono text-base font-extrabold text-slate-900">
-                          ₹{grandTotalAllDays.toFixed(2)}
-                        </span>
-                      </div>
-
-                      {/* Paid Today / Paid on Date */}
-                      {dayTotalPaid > 0 && (
-                        <div className="flex items-center justify-between py-1 text-slate-500 font-medium">
-                          <span>Paid {isViewingToday ? 'Today' : 'on Date'}</span>
-                          <span className="font-mono text-emerald-700 font-bold">- ₹{dayTotalPaid.toFixed(2)}</span>
-                        </div>
-                      )}
-
-                      {/* Net Balance & Pay Now at Bottom */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-900 text-white font-bold mt-2 shadow-xs">
-                        <div className="flex items-baseline gap-2.5">
-                          <span className="text-xs uppercase tracking-wider font-mono text-slate-300">
-                            Net Balance Due:
-                          </span>
-                          <span className="font-mono text-2xl font-black text-white">
-                            ₹{netBalanceDueNow.toFixed(2)}
-                          </span>
-                        </div>
-
-                        {netBalanceDueNow > 0 ? (
-                          <button
-                            onClick={() => {
-                              setPaymentSessionTarget({
-                                sessionId: activeVisit?.id || selectedVisit?.id || '',
-                                maxAmount: netBalanceDueNow,
-                                title: `Pay Net Balance Due`
-                              });
-                              setShowRecordPaymentModal(true);
-                            }}
-                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
-                          >
-                            <CreditCard className="w-4 h-4" />
-                            <span>Pay Now</span>
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                            <span>Fully Settled &amp; Paid</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -1659,90 +1690,373 @@ function CustomerPageContent() {
               {activeTab === 'history' && (
                 <div className="space-y-4">
                   {customerData.timeline.length === 0 ? (
-                    <div className="p-12 text-center text-slate-400 text-xs bg-white rounded-2xl border border-slate-200">
-                      No past visit history recorded yet for this customer.
+                    <div className="p-12 text-center text-slate-500 text-xs bg-white rounded-2xl border border-slate-200 space-y-2">
+                      <p className="font-bold text-slate-800 text-sm">No new visits recorded yet in this software.</p>
+                      <p className="text-slate-500 max-w-md mx-auto">
+                        Real visits will appear here as they occur. All historical lounge sessions prior to release are safely preserved in the <strong>Past Session Archive</strong> tab.
+                      </p>
+                      {customerData.legacySessions && customerData.legacySessions.length > 0 && (
+                        <div className="pt-2">
+                          <button
+                            onClick={() => setActiveTab('legacy')}
+                            className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-purple-600" />
+                            <span>View {customerData.legacySessions.length} Past Archived Sessions →</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ) : (
-                    customerData.timeline.map((day) => (
-                      <div key={day.date} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-sm text-slate-900 font-display">
-                                {day.formattedDate}
-                              </h4>
-                              {day.isToday && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
-                                  Today
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                              {day.visits.length} visit session{day.visits.length > 1 ? 's' : ''}
-                            </p>
-                          </div>
+                    customerData.timeline.map((day) => {
+                      const dayPaid = day.visits.reduce((sum, v) => sum + (v.paidAmount ?? v.payments.reduce((s, p) => s + (p.amount || 0), 0)), 0);
+                      const dayRemaining = day.visits.reduce((sum, v) => sum + (v.balanceDue ?? Math.max(0, v.totalBill - (v.paidAmount || 0))), 0);
 
-                          <div className="flex items-center gap-3">
+                      return (
+                        <div key={day.date} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+                          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-bold text-sm text-slate-900 font-display">
+                                  {day.formattedDate}
+                                </h4>
+                                {day.isToday && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
+                                    Today
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                                {day.visits.length} visit session{day.visits.length > 1 ? 's' : ''}
+                              </p>
+                            </div>
+
                             <div className="text-right">
                               <span className="text-sm font-extrabold text-slate-900 font-display block">
                                 Total: ₹{day.totalDayBill.toFixed(2)}
                               </span>
-                              <span className="text-[11px] text-emerald-600 font-semibold font-mono">
-                                Paid: ₹{day.totalDayPaid.toFixed(2)}
-                              </span>
+                              <div className="flex items-center gap-2 justify-end mt-0.5">
+                                <span className="text-[11px] text-emerald-700 font-bold font-mono">
+                                  Paid: ₹{dayPaid.toFixed(2)}
+                                </span>
+                                {dayRemaining > 0 && (
+                                  <span className="text-[11px] text-rose-700 font-black font-mono bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200">
+                                    Remaining: ₹{dayRemaining.toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <button
-                              onClick={() => {
-                                setSelectedDate(day.date);
-                                setSelectedDateManuallyChanged(true);
-                                setActiveTab('today');
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-800 text-xs font-bold shadow-2xs hover:border-blue-400 transition-all flex items-center gap-1"
-                              title="Inspect this day in detail"
-                            >
-                              <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                              <span>Select Date</span>
-                            </button>
+                          </div>
+
+                          {/* Itemized day details */}
+                          <div className="space-y-3">
+                            {day.visits.map((v, vIdx) => {
+                              const vPaid = v.paidAmount ?? v.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+                              const vRemaining = Math.max(0, v.totalBill - vPaid);
+                              const isPartiallyPaid = vPaid > 0 && vRemaining > 0;
+                              const isUnpaid = vPaid === 0 && vRemaining > 0;
+                              const isFullyPaid = vRemaining === 0 && v.totalBill > 0;
+
+                              return (
+                                <div
+                                  key={v.id || vIdx}
+                                  className={`p-4 rounded-xl border text-xs space-y-2.5 transition-all ${
+                                    vRemaining > 0
+                                      ? 'bg-rose-50/30 border-rose-200'
+                                      : 'bg-slate-50 border-slate-200'
+                                  }`}
+                                >
+                                  {/* Visit Header: Time, Status & Red Remaining Amount */}
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200/60 gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-bold text-slate-900 text-xs font-display">
+                                        Visit {vIdx + 1} at {new Date(v.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                      {v.endTime && (
+                                        <span className="text-[10px] text-slate-500 font-mono">
+                                          (Closed {new Date(v.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                                        </span>
+                                      )}
+
+                                      {isUnpaid ? (
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 font-mono">
+                                          ● Unpaid
+                                        </span>
+                                      ) : isPartiallyPaid ? (
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 font-mono">
+                                          ● Partially Paid
+                                        </span>
+                                      ) : isFullyPaid ? (
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
+                                          ✓ Paid
+                                        </span>
+                                      ) : null}
+                                    </div>
+
+                                    {/* Bill & Red Colour Remaining Amount */}
+                                    <div className="flex items-center gap-2.5 font-mono text-xs flex-wrap">
+                                      <span className="text-slate-600">
+                                        Bill: <strong className="text-slate-900">₹{v.totalBill.toFixed(2)}</strong>
+                                      </span>
+                                      {vPaid > 0 && (
+                                        <span className="text-emerald-700 font-bold">
+                                          Paid: ₹{vPaid.toFixed(2)}
+                                        </span>
+                                      )}
+                                      {vRemaining > 0 && (
+                                        <span className="text-rose-700 font-black bg-rose-100/90 px-2 py-0.5 rounded-md border border-rose-300 text-xs shadow-2xs">
+                                          Remaining: ₹{vRemaining.toFixed(2)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {v.tablePlays.length > 0 && (
+                                    <div className="space-y-1">
+                                      <span className="text-[10px] font-bold uppercase text-slate-400 font-mono">Tables Played:</span>
+                                      {v.tablePlays.map(tp => (
+                                        <div key={tp.id} className="flex justify-between text-slate-600">
+                                          <span className="flex items-center gap-1.5"><Gamepad2 className="w-3 h-3 text-slate-400" /> {tp.tableName}</span>
+                                          <span className="font-mono">₹{tp.cost.toFixed(2)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {v.orders.length > 0 && (
+                                    <div className="space-y-1">
+                                      <span className="text-[10px] font-bold uppercase text-slate-400 font-mono">Items Ordered:</span>
+                                      {v.orders.map(o => (
+                                        <div key={o.id} className="flex justify-between text-slate-600">
+                                          <span className="flex items-center gap-1.5"><Coffee className="w-3 h-3 text-slate-400" /> {o.quantity}x {o.name}</span>
+                                          <span className="font-mono">₹{o.total.toFixed(2)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
 
-                        {/* Itemized day details */}
-                        <div className="space-y-3">
-                          {day.visits.map((v, vIdx) => (
-                            <div key={v.id || vIdx} className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-2">
-                              <div className="flex justify-between items-center text-[11px] font-bold text-slate-700">
-                                <span>Visit at {new Date(v.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                <span>Bill: ₹{v.totalBill.toFixed(2)}</span>
+              {/* TAB 3: PAST SESSION ARCHIVE */}
+              {activeTab === 'legacy' && (
+                <div className="space-y-4">
+                  {/* Archive Banner */}
+                  <div className="bg-purple-50/70 border border-purple-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-purple-700 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-sm text-purple-950 font-display">
+                          Past Session Archive (Pre-Cutover History)
+                        </h3>
+                        <p className="text-xs text-purple-800/80 mt-0.5 max-w-xl">
+                          All historical sessions imported from the original Rebound system with itemized orders, tables played, and payments. Any unpaid balances were carried forward into <strong>Total Unpaid (Udhar)</strong>.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 self-start sm:self-center font-mono text-xs">
+                      <span className="px-3 py-1.5 rounded-xl bg-white border border-purple-200 text-purple-900 font-bold shadow-2xs">
+                        {customerData.legacySessions?.length || 0} Archived Sessions
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Search inside archive if many sessions */}
+                  {(customerData.legacySessions?.length || 0) > 3 && (
+                    <div className="relative">
+                      <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Filter archived sessions by item name, table, staff, or date..."
+                        value={legacySearchTerm}
+                        onChange={(e) => setLegacySearchTerm(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 font-medium"
+                      />
+                    </div>
+                  )}
+
+                  {/* Sessions List */}
+                  {(!customerData.legacySessions || customerData.legacySessions.length === 0) ? (
+                    <div className="p-12 text-center text-slate-400 text-xs bg-white rounded-2xl border border-slate-200">
+                      No historical sessions found for this customer.
+                    </div>
+                  ) : (
+                    customerData.legacySessions
+                      .filter(ls => {
+                        if (!legacySearchTerm.trim()) return true;
+                        const term = legacySearchTerm.toLowerCase();
+                        const matchId = ls.id.toLowerCase().includes(term);
+                        const matchStaff = (ls.staffUsername || '').toLowerCase().includes(term);
+                        const matchOrders = ls.orders.some(o => o.name.toLowerCase().includes(term));
+                        const matchTables = ls.tablePlays.some(tp => tp.tableName.toLowerCase().includes(term));
+                        return matchId || matchStaff || matchOrders || matchTables;
+                      })
+                      .map((ls, idx) => {
+                        const isExpanded = expandedLegacyIds.has(ls.id);
+                        const toggleExpand = () => {
+                          setExpandedLegacyIds(prev => {
+                            const next = new Set(prev);
+                            if (next.has(ls.id)) next.delete(ls.id);
+                            else next.add(ls.id);
+                            return next;
+                          });
+                        };
+
+                        const sDate = new Date(ls.startTime);
+                        const formattedDate = sDate.toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        });
+                        const timeStr = sDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const endTimeStr = ls.endTime ? new Date(ls.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+
+                        return (
+                          <div
+                            key={ls.id}
+                            className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden transition-all hover:border-purple-200"
+                          >
+                            {/* Session Card Header */}
+                            <div 
+                              onClick={toggleExpand}
+                              className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/70 select-none"
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 font-mono font-bold text-xs">
+                                  #{idx + 1}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-slate-900 text-sm font-display">
+                                      {formattedDate} • {timeStr}
+                                      {endTimeStr && ` - ${endTimeStr}`}
+                                    </span>
+                                    {ls.paymentStatus === 'paid' ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
+                                        ✓ Settled
+                                      </span>
+                                    ) : ls.balanceDue > 0 ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 font-mono">
+                                        Unpaid (In Udhar)
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 font-mono">
+                                        {ls.paymentStatus}
+                                      </span>
+                                    )}
+                                    {ls.staffUsername && (
+                                      <span className="text-[10px] text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded-full">
+                                        Staff: {ls.staffUsername}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-3 text-[11px] text-slate-500 font-mono mt-1">
+                                    <span>ID: <code className="text-slate-700">{ls.id}</code></span>
+                                    <span>•</span>
+                                    <span>{ls.tablePlays.length} Tables</span>
+                                    <span>•</span>
+                                    <span>{ls.orders.length} Items</span>
+                                  </div>
+                                </div>
                               </div>
 
-                              {v.tablePlays.length > 0 && (
-                                <div className="space-y-1">
-                                  <span className="text-[10px] font-bold uppercase text-slate-400 font-mono">Tables Played:</span>
-                                  {v.tablePlays.map(tp => (
-                                    <div key={tp.id} className="flex justify-between text-slate-600">
-                                      <span>🎱 {tp.tableName}</span>
-                                      <span className="font-mono">₹{tp.cost.toFixed(2)}</span>
-                                    </div>
-                                  ))}
+                              <div className="flex items-center gap-4 sm:gap-6 self-end sm:self-center font-mono">
+                                <div className="text-right">
+                                  <div className="text-xs text-slate-500">
+                                    Total: <strong className="text-slate-900 text-sm">₹{ls.totalBill.toFixed(2)}</strong>
+                                  </div>
+                                  <div className="text-[11px]">
+                                    {ls.paidAmount > 0 && (
+                                      <span className="text-emerald-700 font-bold mr-2">Paid: ₹{ls.paidAmount.toFixed(2)}</span>
+                                    )}
+                                    {ls.balanceDue > 0 && (
+                                      <span className="text-rose-700 font-black">Due: ₹{ls.balanceDue.toFixed(2)}</span>
+                                    )}
+                                  </div>
                                 </div>
-                              )}
-
-                              {v.orders.length > 0 && (
-                                <div className="space-y-1">
-                                  <span className="text-[10px] font-bold uppercase text-slate-400 font-mono">Items Ordered:</span>
-                                  {v.orders.map(o => (
-                                    <div key={o.id} className="flex justify-between text-slate-600">
-                                      <span>☕ {o.quantity}x {o.name}</span>
-                                      <span className="font-mono">₹{o.total.toFixed(2)}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))
+
+                            {/* Collapsible Details */}
+                            {isExpanded && (
+                              <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50/50 space-y-4">
+                                {/* Tables Played */}
+                                {ls.tablePlays.length > 0 && (
+                                  <div className="space-y-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center gap-1.5">
+                                      <Gamepad2 className="w-3 h-3 text-purple-600" /> Tables & Stations Played:
+                                    </span>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      {ls.tablePlays.map((tp, tpIdx) => (
+                                        <div key={tp.id || tpIdx} className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between text-xs">
+                                          <div>
+                                            <div className="font-bold text-slate-900">{tp.tableName}</div>
+                                            <div className="text-[10px] text-slate-400 font-mono">
+                                              {tp.gameType} • {tp.playerCount || 1} Players
+                                              {tp.startTime && ` • ${new Date(tp.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                                            </div>
+                                          </div>
+                                          <span className="font-mono font-bold text-slate-900">₹{tp.cost.toFixed(2)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Items Ordered */}
+                                {ls.orders.length > 0 && (
+                                  <div className="space-y-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center gap-1.5">
+                                      <Coffee className="w-3 h-3 text-amber-600" /> Items & Food Ordered:
+                                    </span>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                                      {ls.orders.map((o, oIdx) => (
+                                        <div key={o.id || oIdx} className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between text-xs">
+                                          <div>
+                                            <div className="font-bold text-slate-900">{o.quantity}x {o.name}</div>
+                                            <div className="text-[10px] text-slate-400 font-mono">
+                                              {o.category || 'Item'} @ ₹{o.price}
+                                            </div>
+                                          </div>
+                                          <span className="font-mono font-bold text-slate-900">₹{o.total.toFixed(2)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Historical Payments Recorded */}
+                                {ls.payments.length > 0 && (
+                                  <div className="space-y-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center gap-1.5">
+                                      <CreditCard className="w-3 h-3 text-emerald-600" /> Past Session Payments:
+                                    </span>
+                                    <div className="flex flex-wrap gap-2">
+                                      {ls.payments.map((p, pIdx) => (
+                                        <div key={p.id || pIdx} className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-mono text-emerald-900 flex items-center gap-2">
+                                          <span>Method: <strong>{p.method}</strong></span>
+                                          <span>•</span>
+                                          <span>Amount: <strong>₹{p.amount.toFixed(2)}</strong></span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
                   )}
                 </div>
               )}
@@ -1768,7 +2082,7 @@ function CustomerPageContent() {
                 <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search by name (Tony, Chirag) or phone..."
+                  placeholder="Search customer by name or phone number..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 font-semibold"
@@ -1889,7 +2203,7 @@ function CustomerPageContent() {
                   >
                     <div>
                       <h4 className="font-bold text-xs text-slate-900">
-                        {t.gameType} Table {t.number}
+                        {t.name || `${t.gameType} Table ${t.number}`}
                       </h4>
                       <p className="text-[10px] text-slate-400 font-mono">
                         Rate: ₹{t.gameType === 'MidSnooker' ? 220 : 160}/hr
@@ -1910,9 +2224,10 @@ function CustomerPageContent() {
       )}
 
       {/* MODAL 3: ADD ORDER MODAL */}
-      {showAddOrderModal && (activeVisit || selectedVisit) && (
+      {showAddOrderModal && customerData && (
         <AddOrderModal
           sessionId={activeVisit?.id || selectedVisit?.id || ''}
+          customerId={customerData.customer.id}
           onClose={() => setShowAddOrderModal(false)}
           onSuccess={() => {
             setShowAddOrderModal(false);
@@ -1938,33 +2253,23 @@ function CustomerPageContent() {
         />
       )}
 
-      {/* MODAL 5: SETTLE OUTSTANDING BALANCE MODAL */}
+      {/* MODAL 5: SETTLE OUTSTANDING BALANCE MODAL (Full / Partial Amount) */}
       {showSettleModal && customerData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl w-full max-w-sm overflow-hidden p-5 space-y-4">
-            <h3 className="font-bold text-sm text-slate-900">
-              Settle Outstanding Balance for {customerData.customer.name}
-            </h3>
-            <p className="text-xs text-slate-600">
-              Total outstanding balance to settle: <strong>₹{customerData.customer.currentUdharDue.toFixed(2)}</strong>.
-            </p>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setShowSettleModal(false)}
-                className="px-3 py-1.5 border border-slate-200 text-xs font-bold rounded-lg cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSettleAllUdhar}
-                disabled={settling}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer"
-              >
-                {settling ? 'Settling...' : 'Confirm Settle All'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <CustomerSettleBalanceModal
+          customer={{
+            id: customerData.customer.id,
+            name: customerData.customer.name,
+            phone: customerData.customer.phone,
+            currentUdharDue: customerData.customer.currentUdharDue,
+          }}
+          onClose={() => setShowSettleModal(false)}
+          onSuccess={async () => {
+            setShowSettleModal(false);
+            if (selectedPhone) {
+              await loadCustomerHistory(selectedPhone);
+            }
+          }}
+        />
       )}
 
       {/* MODAL 6: OUTSTANDING BALANCE BREAKDOWN */}
@@ -2031,7 +2336,7 @@ function CustomerPageContent() {
                           </span>
                         </div>
                         <p className="text-xs text-slate-400 font-mono mt-1 flex items-center gap-1.5 flex-wrap">
-                          <span>🕒 {item.timeStr}</span>
+                          <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-slate-400" /> {item.timeStr}</span>
                           {item.notes && (
                             <>
                               <span>•</span>
@@ -2091,6 +2396,23 @@ function CustomerPageContent() {
         </div>
       )}
 
+      {/* MODAL 7: VISIT PAYMENT & CLOSE (Full / Partial Payment with Udhar) */}
+      {paymentCloseModal && paymentCloseModal.open && customerData && (
+        <VisitPaymentCloseModal
+          visitId={paymentCloseModal.visitId}
+          customerName={customerData.customer.name}
+          customerId={customerData.customer.id}
+          visitTotal={paymentCloseModal.visitTotal}
+          initialMode={paymentCloseModal.mode}
+          onClose={() => setPaymentCloseModal(null)}
+          onSuccess={async () => {
+            setPaymentCloseModal(null);
+            if (selectedPhone) {
+              await loadCustomerHistory(selectedPhone);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

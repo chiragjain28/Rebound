@@ -1,63 +1,127 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { api } from '../../lib/api';
-import { Table, Session, TableBooking } from '../../types';
-import { Navbar } from '../../components/Navbar';
-import { SessionCard } from '../../components/SessionCard';
-import { NewSessionModal } from '../../components/NewSessionModal';
+import { Table, TableBooking } from '../../types';
 import { BookTableModal } from '../../components/BookTableModal';
-import { AddOrderModal } from '../../components/AddOrderModal';
 import { QuickSaleModal } from '../../components/QuickSaleModal';
-import { SwitchTableModal } from '../../components/SwitchTableModal';
 import { RegisterCustomerModal } from '../../components/RegisterCustomerModal';
 import { AssignTableModal } from '../../components/AssignTableModal';
-import { 
-  Play, 
+import { AddOrderModal } from '../../components/AddOrderModal';
+import {
+  Pencil,
+  Trash2,
   Calendar, 
   RefreshCw,
   X,
-  Coffee,
   Gamepad2,
-  Eye,
-  Lock,
-  Unlock,
   Search,
   Sparkles,
-  ArrowRightLeft,
   User,
-  UserPlus
+  UserPlus,
+  ArrowRight,
+  Eye,
+  Clock,
+  Coffee,
+  CheckCircle2,
+  StopCircle,
+  Phone,
+  Activity,
+  Layers,
+  CircleDot
 } from 'lucide-react';
+
+interface ActivePlayInfo {
+  id: number;
+  visitId: string;
+  tableId: number | null;
+  gameType: string;
+  stationName: string;
+  tableNumber?: number;
+  startTime: string;
+  durationStr: string;
+  elapsedMinutes: number;
+  runningCost: number;
+  ratePerHour: number;
+  customerName: string;
+  customerPhone: string;
+  customerId?: number;
+  currentCreditDue: number;
+  ordersCount: number;
+  orders: any[];
+}
 
 export default function DashboardPage() {
   const { user, token, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  // Component states
+  // Core component states
   const [tables, setTables] = useState<Table[]>([]);
-  const [activeSessions, setActiveSessions] = useState<Session[]>([]);
+  const [activePlays, setActivePlays] = useState<ActivePlayInfo[]>([]);
   const [bookings, setBookings] = useState<TableBooking[]>([]);
-  const [salesToday, setSalesToday] = useState(0);
 
-  // Modal controls
-  const [showNewSession, setShowNewSession] = useState(false);
+  // Group floor tables by Game Type so multiple tables (e.g. MidSnooker 1, MidSnooker 2)
+  // appear neatly organized within a single unified Game Type card.
+  const gameGroups = useMemo(() => {
+    const preferredOrder = ['Pool', 'MidSnooker', 'PS4'];
+    const groupsMap = new Map<string, {
+      gameType: string;
+      ratePerHour: number;
+      tables: Table[];
+    }>();
+
+    tables.forEach((t) => {
+      const key = t.gameType || 'Other';
+      if (!groupsMap.has(key)) {
+        const defaultRate = key === 'MidSnooker' ? 220 : key === 'PS4' ? 80 : 160;
+        groupsMap.set(key, {
+          gameType: key,
+          ratePerHour: t.ratePerHour || defaultRate,
+          tables: []
+        });
+      }
+      groupsMap.get(key)!.tables.push(t);
+    });
+
+    // Sort tables within each group by table number ascending
+    groupsMap.forEach(group => {
+      group.tables.sort((a, b) => a.number - b.number);
+    });
+
+    // Return groups ordered by preferred lounge order
+    return Array.from(groupsMap.values()).sort((a, b) => {
+      const idxA = preferredOrder.indexOf(a.gameType);
+      const idxB = preferredOrder.indexOf(b.gameType);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.gameType.localeCompare(b.gameType);
+    });
+  }, [tables]);
+
+  // Modals state
   const [showBookTable, setShowBookTable] = useState(false);
   const [showQuickSale, setShowQuickSale] = useState(false);
   const [showRegisterCustomer, setShowRegisterCustomer] = useState(false);
   const [selectedAssignTable, setSelectedAssignTable] = useState<Table | null>(null);
-  const [showActiveDrawer, setShowActiveDrawer] = useState(false);
-  const [activeOrderSessionId, setActiveOrderSessionId] = useState<string | null>(null);
-  const [switchTableSession, setSwitchTableSession] = useState<Session | null>(null);
+  const [orderVisitId, setOrderVisitId] = useState<string | null>(null);
+  const [endingPlayId, setEndingPlayId] = useState<number | null>(null);
+  const [editingTable, setEditingTable] = useState<Table | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameRate, setRenameRate] = useState('');
+  const [renameLoading, setRenameLoading] = useState(false);
+  const [renameError, setRenameError] = useState('');
 
-  const [liveSessionSearch, setLiveSessionSearch] = useState('');
+  // Search state
   const [globalSearch, setGlobalSearch] = useState('');
   const [customerSearchResults, setCustomerSearchResults] = useState<any[]>([]);
   const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
   const globalSearchRef = useRef<HTMLInputElement>(null);
 
+  // Live customer search
   useEffect(() => {
     const q = globalSearch.trim();
     if (!q) {
@@ -76,67 +140,17 @@ export default function DashboardPage() {
       } finally {
         setIsSearchingCustomers(false);
       }
-    }, 200);
+    }, 180);
 
     return () => clearTimeout(timer);
   }, [globalSearch]);
 
   const [loadingData, setLoadingData] = useState(true);
 
-  // Sales Today lock/flip card states
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(false);
-  const [passwordInput, setPasswordInput] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [verifyingPassword, setVerifyingPassword] = useState(false);
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isUnlocked && isFlipped) {
-      timer = setTimeout(() => {
-        setIsUnlocked(false);
-        setIsFlipped(false);
-        setPasswordInput('');
-        setPasswordError('');
-      }, 30000);
-    }
-    return () => clearTimeout(timer);
-  }, [isUnlocked, isFlipped]);
-
-  const handleVerifyPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!passwordInput) {
-      setPasswordError('Password required');
-      return;
-    }
-    try {
-      setVerifyingPassword(true);
-      setPasswordError('');
-      await api.post('/auth/verify-password', { password: passwordInput, username: user?.username });
-      setIsUnlocked(true);
-      setPasswordInput('');
-    } catch (err: any) {
-      setPasswordError(err.message || 'Incorrect password');
-    } finally {
-      setVerifyingPassword(false);
-    }
-  };
-
+  // Purge any legacy browser session cache on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem('rebound_dashboard_cache');
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          if (parsed.tables) setTables(parsed.tables);
-          if (parsed.activeSessions) setActiveSessions(parsed.activeSessions);
-          if (parsed.bookings) setBookings(parsed.bookings);
-          if (typeof parsed.salesToday === 'number') setSalesToday(parsed.salesToday);
-          setLoadingData(false);
-        } catch (err) {
-          console.error('Failed to parse dashboard cache:', err);
-        }
-      }
+      localStorage.removeItem('rebound_dashboard_cache');
     }
   }, []);
 
@@ -149,37 +163,12 @@ export default function DashboardPage() {
   const fetchData = async () => {
     if (!token) return;
     try {
-      const hasCache = localStorage.getItem('rebound_dashboard_cache') !== null;
-      if (!hasCache) {
-        setLoadingData(true);
-      }
-      
-      const [dashboard, allBookings] = await Promise.all([
-        api.get('/dashboard'),
-        api.get('/bookings')
-      ]);
+      setLoadingData(true);
+      const dashboard = await api.get('/dashboard');
 
-      const fetchedTables = dashboard.tables || [];
-      const fetchedActive = dashboard.activeSessions || [];
-      const fetchedSales = dashboard.salesToday || 0;
-      const fetchedBookings = allBookings || [];
-
-      setTables(fetchedTables);
-      setActiveSessions(fetchedActive);
-      setSalesToday(fetchedSales);
-      setBookings(fetchedBookings);
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(
-          'rebound_dashboard_cache',
-          JSON.stringify({
-            tables: fetchedTables,
-            activeSessions: fetchedActive,
-            salesToday: fetchedSales,
-            bookings: fetchedBookings
-          })
-        );
-      }
+      setTables(dashboard.tables || []);
+      setActivePlays(dashboard.activePlays || []);
+      setBookings(dashboard.bookings || []);
     } catch (e) {
       console.error('Failed to load dashboard data:', e);
     } finally {
@@ -200,14 +189,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
+    // Auto-refresh timer every 30 seconds for live table elapsed time
+    const interval = setInterval(() => {
+      fetchData();
+    }, 30000);
+
     return () => {
+      clearInterval(interval);
       if (fetchDataTimeoutRef.current) {
         clearTimeout(fetchDataTimeoutRef.current);
       }
     };
   }, [token]);
 
-  useWebSocket((message) => {
+  useWebSocket(() => {
     fetchDataDebounced();
   });
 
@@ -217,6 +212,73 @@ export default function DashboardPage() {
       fetchData();
     } catch (err: any) {
       alert(err.message || 'Failed to delete booking');
+    }
+  };
+
+  const handleStartRenameTable = (table: Table) => {
+    if (table.status === 'occupied') {
+      alert(`Cannot modify "${table.name || `${table.gameType} Table ${table.number}`}" while a game is actively running on it.`);
+      return;
+    }
+    setEditingTable(table);
+    const defaultLabel = table.gameType === 'PS4' ? `Station ${table.number}` : `Table ${table.number}`;
+    setRenameValue(table.name || defaultLabel);
+    const defaultRate = table.gameType === 'MidSnooker' ? 220 : table.gameType === 'PS4' ? 80 : 160;
+    setRenameRate(table.ratePerHour ? String(table.ratePerHour) : String(defaultRate));
+    setRenameError('');
+  };
+
+  const handleSaveRenameTable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTable) return;
+    setRenameLoading(true);
+    setRenameError('');
+    try {
+      const trimmed = renameValue.trim();
+      const parsedRate = renameRate ? parseFloat(renameRate) : null;
+      await api.patch(`/tables/${editingTable.id}`, {
+        name: trimmed,
+        ratePerHour: parsedRate
+      });
+      setEditingTable(null);
+      fetchData();
+    } catch (err: any) {
+      setRenameError(err.message || 'Failed to update table');
+    } finally {
+      setRenameLoading(false);
+    }
+  };
+
+  const handleDeleteTable = async (table: Table) => {
+    const displayName = table.name || (table.gameType === 'PS4' ? `Station ${table.number}` : `Table ${table.number}`);
+    if (!confirm(`Are you sure you want to permanently delete "${displayName}" (${table.gameType}) from the database?`)) {
+      return;
+    }
+    try {
+      await api.delete(`/tables/${table.id}`);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete table');
+    }
+  };
+
+  const handleEndTablePlay = async (play: ActivePlayInfo) => {
+    if (!confirm(`Finish game for ${play.customerName} on ${play.stationName}?`)) {
+      return;
+    }
+    try {
+      setEndingPlayId(play.id);
+      await api.post(`/visits/${play.visitId}/table/end`, {
+        tablePlayId: play.id,
+        endTime: new Date().toISOString()
+      });
+      fetchData();
+      // Redirect directly to customer's account page to complete payment
+      router.push(`/customers?phone=${encodeURIComponent(play.customerPhone || play.customerName)}`);
+    } catch (err: any) {
+      alert(err.message || 'Failed to end table play');
+    } finally {
+      setEndingPlayId(null);
     }
   };
 
@@ -230,7 +292,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-16 font-sans">
-      <Navbar />
 
       {/* Bookings Marquee Banner */}
       {bookings.length > 0 && (
@@ -266,7 +327,7 @@ export default function DashboardPage() {
                 <button
                   onClick={() => handleDeleteBooking(b.id)}
                   title="Cancel Booking"
-                  className="ml-1 p-0.5 hover:bg-rose-200 rounded-full text-rose-600"
+                  className="ml-1 p-0.5 hover:bg-rose-200 rounded-full text-rose-600 cursor-pointer"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -278,220 +339,90 @@ export default function DashboardPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
         
-        {/* KPI Cards Row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          
-          {/* Active Sessions Card */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all flex items-center justify-between h-[115px]">
+        {/* ========================================================================= */}
+        {/* SIMPLE SEARCH & ACTION BAR                                               */}
+        {/* ========================================================================= */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Active In-Lounge Players</p>
-              <h2 className="text-3xl font-extrabold text-slate-900 mt-1 font-display">
-                {activeSessions.length}
-              </h2>
-            </div>
-            <button 
-              onClick={() => setShowActiveDrawer(true)}
-              className="bg-slate-100 hover:bg-slate-200 border border-slate-200 p-3 rounded-2xl text-slate-700 transition-all"
-              title="View Live Sessions"
-            >
-              <Play className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* Sales Today Flip Card */}
-          <div className="flip-card h-[115px] w-full relative">
-            <div className={`flip-card-inner ${isFlipped ? 'flipped' : ''}`}>
-              <div 
-                className="flip-card-front bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 flex items-center justify-between cursor-pointer select-none transition-all"
-                onClick={() => {
-                  setIsFlipped(true);
-                  setPasswordError('');
-                }}
-              >
-                <div>
-                  <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Today&apos;s Revenue</p>
-                  <h2 className="text-2xl font-bold text-slate-300 mt-1 tracking-widest font-mono">
-                    ••••••
-                  </h2>
-                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">Click with password to reveal</p>
-                </div>
-                <div className="bg-slate-100 border border-slate-200 p-3 rounded-2xl text-slate-500">
-                  <Lock className="h-5 w-5" />
-                </div>
-              </div>
-
-              <div className="flip-card-back w-full h-full">
-                {!isUnlocked ? (
-                  <form 
-                    onSubmit={handleVerifyPassword} 
-                    className="bg-white p-3.5 rounded-2xl border border-slate-300 shadow-lg flex flex-col justify-between h-full select-none"
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider">Staff Password</span>
-                      <button 
-                        type="button" 
-                        onClick={() => {
-                          setIsFlipped(false);
-                          setPasswordInput('');
-                          setPasswordError('');
-                        }} 
-                        className="text-slate-400 hover:text-slate-700"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="password"
-                        value={passwordInput}
-                        onChange={(e) => setPasswordInput(e.target.value)}
-                        placeholder="Password..."
-                        className="block flex-1 rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900"
-                      />
-                      <button
-                        type="submit"
-                        disabled={verifyingPassword}
-                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-xs font-bold rounded-xl text-white shrink-0 disabled:opacity-50"
-                      >
-                        {verifyingPassword ? '...' : 'Unlock'}
-                      </button>
-                    </div>
-                    {passwordError && (
-                      <p className="text-[10px] text-rose-600 font-semibold truncate">{passwordError}</p>
-                    )}
-                  </form>
-                ) : (
-                  <div className="bg-white p-5 rounded-2xl border border-emerald-200 shadow-xs flex items-center justify-between h-full select-none">
-                    <div>
-                      <p className="text-[11px] text-emerald-700 font-bold uppercase tracking-wider">Today&apos;s Revenue</p>
-                      <h2 className="text-2xl font-black text-emerald-700 mt-1 font-display">
-                        ₹{salesToday.toFixed(2)}
-                      </h2>
-                    </div>
-                    <button 
-                      onClick={() => {
-                        setIsUnlocked(false);
-                        setIsFlipped(false);
-                      }}
-                      title="Lock Revenue Display"
-                      className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl text-emerald-700 hover:bg-emerald-100 transition-colors"
-                    >
-                      <Unlock className="h-5 w-5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Floor Tables Readiness Card */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all flex items-center justify-between h-[115px]">
-            <div>
-              <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Floor Tables Readiness</p>
-              <h2 className="text-2xl font-extrabold text-slate-900 mt-1 font-display">
-                {tables.filter(t => t.status === 'occupied').length} <span className="text-sm font-semibold text-slate-500">/ {tables.length} in play</span>
-              </h2>
-              <p className="text-[10px] text-emerald-700 font-semibold mt-0.5 font-mono">
-                {tables.filter(t => t.status !== 'occupied').length} Tables Available
+              <h1 className="text-base font-extrabold text-slate-900 font-display tracking-tight">
+                Customer Search & Floor Control
+              </h1>
+              <p className="text-xs text-slate-500 font-medium">
+                Search customer to open account, manage running table, or log a sale
               </p>
             </div>
-            <div className="bg-blue-50 border border-blue-200 p-3 rounded-2xl text-blue-700">
-              <Gamepad2 className="h-5 w-5" />
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowQuickSale(true)}
+                className="inline-flex items-center px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition-all gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Quick Sale</span>
+              </button>
+
+              <button
+                onClick={() => setShowRegisterCustomer(true)}
+                className="inline-flex items-center px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all gap-1.5 cursor-pointer active:scale-95"
+              >
+                <UserPlus className="h-3.5 w-3.5" />
+                <span>Register Customer</span>
+              </button>
+
+              <button
+                onClick={() => setShowBookTable(true)}
+                className="inline-flex items-center px-3.5 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-all gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                <span>Book Table</span>
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* Dashboard Actions Bar */}
-        <div className="flex flex-wrap justify-between items-center gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-sm font-bold text-slate-900 font-display uppercase tracking-wide">
-              Floor Plan & Live Table Control
-            </h2>
-            {loadingData && <RefreshCw className="h-3.5 w-3.5 animate-spin text-slate-400" />}
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowQuickSale(true)}
-              className="inline-flex items-center px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-xs transition-all gap-1.5"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Instant Quick POS Sale</span>
-            </button>
+          {/* Clean Search Input */}
+          <div className="relative">
+            <div className="relative flex items-center bg-slate-50 hover:bg-white focus-within:bg-white rounded-xl border border-slate-200 focus-within:border-slate-900 focus-within:ring-2 focus-within:ring-slate-900/10 px-3.5 py-2.5 gap-2.5 transition-all">
+              <Search className="h-4 w-4 text-slate-400 shrink-0" />
+              <input
+                ref={globalSearchRef}
+                type="text"
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+                placeholder="Search customer by name or phone number..."
+                className="flex-1 bg-transparent text-xs text-slate-900 placeholder-slate-400 focus:outline-none font-bold"
+              />
+              {isSearchingCustomers && (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-slate-400 shrink-0" />
+              )}
+              {globalSearch && (
+                <button
+                  onClick={() => {
+                    setGlobalSearch('');
+                    setCustomerSearchResults([]);
+                  }}
+                  className="text-slate-400 hover:text-slate-700 shrink-0 cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
 
-            <button
-              onClick={() => setShowBookTable(true)}
-              className="inline-flex items-center px-3.5 py-2 border border-slate-200 text-xs font-bold rounded-xl text-slate-700 bg-white hover:bg-slate-50 transition-all gap-1.5"
-            >
-              <Calendar className="h-3.5 w-3.5 text-slate-500" />
-              <span>Book Table</span>
-            </button>
+            {/* Clean Search Results Dropdown (NO lifetime spend, NO bottom search link) */}
+            {globalSearch.trim() && (() => {
+              const hasRegistered = customerSearchResults.length > 0;
 
-            <button
-              onClick={() => setShowRegisterCustomer(true)}
-              className="inline-flex items-center px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs hover:shadow-sm transition-all gap-1.5"
-            >
-              <UserPlus className="h-3.5 w-3.5" />
-              <span>Register New Customer</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Global Search Bar */}
-        <div className="relative">
-          <div className="relative flex items-center bg-white rounded-2xl border border-slate-200 shadow-xs px-4 py-2.5 gap-2.5 focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-900/10 transition-all">
-            <Search className="h-4 w-4 text-slate-400 shrink-0" />
-            <input
-              ref={globalSearchRef}
-              type="text"
-              value={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-              placeholder="Search customer by name (Tony, Ayush) or phone number (98765)..."
-              className="flex-1 bg-transparent text-xs text-slate-900 placeholder-slate-400 focus:outline-none font-semibold"
-            />
-            {isSearchingCustomers && (
-              <RefreshCw className="h-3.5 w-3.5 animate-spin text-slate-400 shrink-0" />
-            )}
-            {globalSearch && (
-              <button
-                onClick={() => {
-                  setGlobalSearch('');
-                  setCustomerSearchResults([]);
-                }}
-                className="text-slate-400 hover:text-slate-700 shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Search Results Dropdown */}
-          {globalSearch.trim() && (() => {
-            const q = globalSearch.trim().toLowerCase();
-            const matchedActive = activeSessions.filter(s => 
-              s.customerName.toLowerCase().includes(q) || 
-              (s.customerPhone && s.customerPhone.includes(q))
-            );
-
-            const hasActive = matchedActive.length > 0;
-            const hasRegistered = customerSearchResults.length > 0;
-
-            return (
-              <div className="absolute top-full left-0 right-0 mt-2 z-40 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in max-h-[460px] overflow-y-auto">
-                <div className="p-3 divide-y divide-slate-100">
-                  
-                  {/* Matching Registered Customers from Database */}
-                  {hasRegistered && (
-                    <div className="pb-3">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-2 font-mono">
-                        Registered Permanent Customers ({customerSearchResults.length})
-                      </span>
+              return (
+                <div className="absolute top-full left-0 right-0 mt-2 z-40 bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden animate-in fade-in max-h-[420px] overflow-y-auto">
+                  <div className="p-3">
+                    {hasRegistered ? (
                       <div className="space-y-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5 px-1 font-mono">
+                          Found {customerSearchResults.length} Customer{customerSearchResults.length > 1 ? 's' : ''}
+                        </span>
+
                         {customerSearchResults.map((c) => {
-                          const activePlaying = activeSessions.find(s => 
-                            (s.customerPhone && s.customerPhone === c.phone) || 
-                            s.customerName.toLowerCase() === c.name.toLowerCase()
-                          );
+                          const hasDebt = (c.currentCreditDue || 0) > 0;
                           return (
                             <div
                               key={c.id || c.phone}
@@ -499,97 +430,188 @@ export default function DashboardPage() {
                                 router.push(`/customers?phone=${encodeURIComponent(c.phone)}`);
                                 setGlobalSearch('');
                               }}
-                              className="p-3 rounded-xl hover:bg-slate-50 cursor-pointer flex items-center justify-between border border-slate-100 transition-all group"
+                              className="p-3 rounded-xl hover:bg-slate-50 cursor-pointer flex items-center justify-between border border-slate-100 hover:border-slate-200 transition-all group"
                             >
                               <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform">
+                                <div className="w-9 h-9 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform font-display">
                                   {c.name.slice(0, 2).toUpperCase()}
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <p className="font-bold text-xs text-slate-900">{c.name}</p>
-                                    {activePlaying && (
-                                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-800 border border-blue-200 animate-pulse">
-                                        ● Live In Lounge
+                                    {hasDebt && (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-rose-50 text-rose-700 border border-rose-200 font-mono">
+                                        Udhar: ₹{c.currentCreditDue.toFixed(0)}
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-[11px] text-slate-500 font-mono flex items-center gap-2 mt-0.5">
-                                    <span>📞 {c.phone}</span>
-                                    <span>• Registered {new Date(c.createdAt).toLocaleDateString()}</span>
+                                  <p className="text-[11px] text-slate-500 font-mono mt-0.5 flex items-center gap-1.5">
+                                    <Phone className="w-3 h-3 text-slate-400" />
+                                    <span>{c.phone}</span>
                                   </p>
                                 </div>
                               </div>
+
                               <div className="text-right">
-                                <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900 flex items-center gap-1">
-                                  Open Customer Page →
+                                <span className="text-xs font-bold text-slate-700 group-hover:text-blue-600 flex items-center gap-1 transition-colors">
+                                  <span>Open Profile</span>
+                                  <ArrowRight className="h-3 w-3" />
                                 </span>
                               </div>
                             </div>
                           );
                         })}
                       </div>
-                    </div>
-                  )}
-
-                  {/* Active In-Lounge Matches */}
-                  {hasActive && (
-                    <div className="py-2.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block mb-2 font-mono">
-                        Active Tickets on Floor ({matchedActive.length})
-                      </span>
-                      <div className="space-y-1.5">
-                        {matchedActive.map((s) => (
-                          <div
-                            key={s.id}
-                            onClick={() => { router.push(`/sessions/${s.id}`); setGlobalSearch(''); }}
-                            className="p-2.5 rounded-xl hover:bg-slate-50 cursor-pointer flex justify-between items-center border border-slate-100"
-                          >
-                            <div>
-                              <p className="font-bold text-xs text-slate-900">{s.customerName}</p>
-                              <p className="text-[10px] text-slate-500 font-mono">Ticket {s.id} • {s.customerPhone || 'Walk-in'}</p>
-                            </div>
-                            <span className="font-bold text-xs text-emerald-700">₹{(s.totalBill || 0).toFixed(0)}</span>
-                          </div>
-                        ))}
+                    ) : !isSearchingCustomers ? (
+                      <div className="py-6 text-center text-slate-500 text-xs">
+                        No registered customer found matching &ldquo;{globalSearch}&rdquo;
                       </div>
-                    </div>
-                  )}
-
-                  {/* No Results found notice */}
-                  {!hasRegistered && !hasActive && !isSearchingCustomers && (
-                    <div className="py-4 text-center">
-                      <p className="text-xs text-slate-500">No registered customers found matching &ldquo;{globalSearch}&rdquo;</p>
-                    </div>
-                  )}
-
-                  <div className="pt-2">
-                    <div 
-                      onClick={() => {
-                        router.push(`/customers?search=${encodeURIComponent(globalSearch.trim())}`);
-                        setGlobalSearch('');
-                      }}
-                      className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl cursor-pointer flex items-center justify-between text-xs font-bold text-slate-800 transition-colors"
-                    >
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-slate-500" />
-                        <span>Search &ldquo;{globalSearch.trim()}&rdquo; in Permanent Customer Directory</span>
-                      </div>
-                      <span className="text-[11px] text-emerald-700 font-mono">View Directory →</span>
-                    </div>
+                    ) : null}
                   </div>
-
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
+          </div>
         </div>
 
-        {/* Live Visual Floor Plan Table Grid */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-              Live Tables Status Floor Plan ({tables.length} Tables)
+        {/* ========================================================================= */}
+        {/* CURRENTLY PLAYING CARDS (POOL, SNOOKER, PS4)                              */}
+        {/* ========================================================================= */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-slate-900 font-display uppercase tracking-wide flex items-center gap-2">
+              <Activity className="w-4 h-4 text-blue-600" />
+              <span>Currently Playing ({activePlays.length} Active Players)</span>
+            </h2>
+            {loadingData && <RefreshCw className="h-3.5 w-3.5 animate-spin text-slate-400" />}
+          </div>
+
+          {activePlays.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500 text-xs">
+              <Gamepad2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="font-semibold text-slate-700">No tables currently in play</p>
+              <p className="text-slate-400 text-[11px] mt-0.5">
+                Assign a player to Pool, Snooker, or PS4 below to start a game.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activePlays.map((play) => {
+                const isPool = play.gameType === 'Pool';
+                const isSnooker = play.gameType === 'MidSnooker';
+                const isPS4 = play.gameType === 'PS4';
+
+                return (
+                  <div
+                    key={play.id}
+                    className="bg-white rounded-2xl border-2 border-blue-200/80 hover:border-blue-400 shadow-xs hover:shadow-md transition-all p-4 flex flex-col justify-between space-y-3"
+                  >
+                    <div>
+                      {/* Top Bar: Station badge & live duration */}
+                      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+                        <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg border uppercase tracking-wider flex items-center gap-1.5 ${
+                          isSnooker
+                            ? 'bg-purple-50 text-purple-800 border-purple-200'
+                            : isPS4
+                            ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                            : 'bg-blue-50 text-blue-800 border-blue-200'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            isSnooker ? 'bg-purple-600' : isPS4 ? 'bg-indigo-600' : 'bg-blue-600'
+                          }`} />
+                          {play.stationName}
+                        </span>
+
+                        <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+                          <span>{play.durationStr}</span>
+                        </div>
+                      </div>
+
+                      {/* Customer Info */}
+                      <div className="pt-2.5 flex items-start justify-between gap-2">
+                        <div>
+                          <h3 
+                            onClick={() => router.push(`/customers?phone=${encodeURIComponent(play.customerPhone || play.customerName)}`)}
+                            className="font-extrabold text-sm text-slate-900 hover:text-blue-600 cursor-pointer flex items-center gap-1.5 font-display"
+                          >
+                            <User className="h-3.5 w-3.5 text-slate-400" />
+                            <span>{play.customerName}</span>
+                          </h3>
+                          {play.customerPhone && (
+                            <p className="text-[11px] text-slate-400 font-mono pl-5">
+                              {play.customerPhone}
+                            </p>
+                          )}
+                        </div>
+
+                        {play.currentCreditDue > 0 && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 font-mono">
+                            Prior Udhar: ₹{play.currentCreditDue}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Running charges preview */}
+                      <div className="mt-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                        <span className="text-slate-500 font-medium">Running Table Bill:</span>
+                        <span className="font-extrabold text-slate-900 font-mono">
+                          ₹{play.runningCost.toFixed(0)} <span className="text-[10px] text-slate-400 font-normal">(@ ₹{play.ratePerHour}/hr)</span>
+                        </span>
+                      </div>
+
+                      {/* Cafe items count if ordered */}
+                      {play.ordersCount > 0 && (
+                        <p className="mt-1.5 text-[11px] text-slate-600 font-medium flex items-center gap-1 px-1">
+                          <Coffee className="w-3 h-3 text-slate-400" />
+                          <span>{play.ordersCount} cafe items attached</span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="pt-3 border-t border-slate-100 flex items-center gap-1.5">
+                      <button
+                        onClick={() => setOrderVisitId(play.visitId)}
+                        className="flex-1 py-1.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                        title="Add cafe drinks or snacks"
+                      >
+                        <Coffee className="w-3 h-3 text-slate-500" />
+                        <span>Order</span>
+                      </button>
+
+                      <button
+                        onClick={() => router.push(`/customers?phone=${encodeURIComponent(play.customerPhone || play.customerName)}`)}
+                        className="py-1.5 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors flex items-center justify-center cursor-pointer"
+                        title="Open customer detailed account"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={() => handleEndTablePlay(play)}
+                        disabled={endingPlayId === play.id}
+                        className="flex-1 py-1.5 px-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <StopCircle className="w-3 h-3 text-rose-400" />
+                        <span>{endingPlayId === play.id ? 'Finishing...' : 'End Game'}</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ========================================================================= */}
+        {/* FLOOR STATIONS & AVAILABILITY GRID (POOL, SNOOKER, PS4)                  */}
+        {/* ========================================================================= */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 font-display uppercase tracking-wide flex items-center gap-2">
+              <Layers className="w-4 h-4 text-slate-700" />
+              <span>Floor Stations & Readiness ({tables.length} Stations in {gameGroups.length} Categories)</span>
             </h3>
             <div className="flex items-center gap-3 text-xs">
               <span className="flex items-center gap-1.5 text-emerald-700 font-semibold">
@@ -603,125 +625,189 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {tables.map((table) => {
-              const isOccupied = table.status === 'occupied';
-              const occupiedSession = activeSessions.find(s => 
-                s.tableId === table.id || s.tablePlays?.some(tp => !tp.endTime && tp.tableId === table.id)
-              );
-
-              return (
-                <div
-                  key={table.id}
-                  className={`p-4 rounded-2xl border transition-all flex flex-col justify-between select-none ${
-                    isOccupied
-                      ? 'bg-blue-50/50 border-blue-200 shadow-xs'
-                      : 'bg-white border-slate-200 hover:border-slate-300 shadow-xs'
-                  }`}
-                >
-                  <div>
-                    <div className="flex justify-between items-start">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        {table.gameType}
-                      </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        isOccupied
-                          ? 'bg-blue-100 text-blue-800 border-blue-200'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      }`}>
-                        {isOccupied ? 'Occupied' : 'Available'}
-                      </span>
-                    </div>
-
-                    <h4 className="text-base font-extrabold text-slate-900 font-display mt-1">
-                      Table {table.number}
-                    </h4>
-                    <p className="text-[11px] text-slate-500 font-mono">
-                      {table.gameType || 'Pool'} · ₹{table.ratePerHour || (table.gameType === 'MidSnooker' ? 220 : 160)}/hr
-                    </p>
-                  </div>
-
-                  {isOccupied && occupiedSession ? (
-                    <div className="mt-4 pt-3 border-t border-blue-200/60 space-y-2">
-                      <div className="flex justify-between items-center text-xs">
-                        <button
-                          onClick={() => router.push(`/customers?phone=${encodeURIComponent(occupiedSession.customerPhone || occupiedSession.customerName)}`)}
-                          className="font-bold text-slate-900 hover:text-blue-600 truncate pr-1 text-left flex items-center gap-1 group/name"
-                        >
-                          <span className="group-hover/name:underline">👤 {occupiedSession.customerName}</span>
-                        </button>
-                      </div>
-
-                      <div className="flex gap-1.5 pt-1">
-                        <button
-                          onClick={() => setSwitchTableSession(occupiedSession)}
-                          title="Transfer / Switch Table"
-                          className="flex-1 py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 shadow-2xs"
-                        >
-                          <ArrowRightLeft className="w-3 h-3 text-slate-500" /> Switch
-                        </button>
-                        <button
-                          onClick={() => setActiveOrderSessionId(occupiedSession.id)}
-                          title="+ Add Cafe Order"
-                          className="flex-1 py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 shadow-2xs"
-                        >
-                          <Coffee className="w-3 h-3 text-slate-500" /> + Order
-                        </button>
-                        <button
-                          onClick={() => router.push(`/customers?phone=${encodeURIComponent(occupiedSession.customerPhone || occupiedSession.customerName)}`)}
-                          title="Open Customer Page"
-                          className="py-1.5 px-2 bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold rounded-lg flex items-center justify-center"
-                        >
-                          <Eye className="w-3 h-3" />
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center">
-                      <span className="text-[11px] text-slate-400 font-medium">Ready for play</span>
-                      <button
-                        onClick={() => setSelectedAssignTable(table)}
-                        className="text-xs font-bold text-slate-900 hover:text-blue-600 flex items-center gap-1 transition-colors"
-                      >
-                        + Assign Table
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Active In-Lounge Sessions List */}
-        <div>
-          <h3 className="text-xs font-bold text-slate-600 mb-3 uppercase tracking-wider">
-            Active Playing & Lounge Sessions ({activeSessions.length})
-          </h3>
-          
-          {loadingData && activeSessions.length === 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {[1, 2, 3].map((n) => (
-                <div key={n} className="bg-white p-5 rounded-2xl border border-slate-200 animate-pulse space-y-3 h-[180px]">
-                  <div className="h-5 w-24 bg-slate-100 rounded-lg"></div>
-                  <div className="h-4 w-32 bg-slate-100 rounded-lg"></div>
-                </div>
-              ))}
-            </div>
-          ) : activeSessions.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-500 text-xs">
-              No active players in the lounge. Search a customer above, click <strong className="text-slate-900">&quot;Register New Customer&quot;</strong>, or use <strong className="text-emerald-700">&quot;Instant Quick POS Sale&quot;</strong> to begin.
+          {gameGroups.length === 0 ? (
+            <div className="bg-slate-50 rounded-xl border border-slate-200 p-8 text-center text-slate-400 text-xs">
+              <Layers className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+              <p className="font-semibold text-slate-700">No floor stations created yet</p>
+              <p className="text-slate-400 text-[11px] mt-0.5">
+                Use the &apos;+ Add Table&apos; button in the navigation bar to configure lounge stations.
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {activeSessions.map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  onOrderAdded={fetchData}
-                  onAddItemsClick={(sid) => setActiveOrderSessionId(sid)}
-                />
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {gameGroups.map((group) => {
+                const totalCount = group.tables.length;
+                const availableCount = group.tables.filter((t) => t.status === 'available').length;
+                const isSnooker = group.gameType === 'MidSnooker';
+                const isPS4 = group.gameType === 'PS4';
+
+                return (
+                  <div
+                    key={group.gameType}
+                    className="bg-white rounded-2xl border border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden"
+                  >
+                    {/* Game Type Header */}
+                    <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm border shadow-2xs ${
+                            isSnooker
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : isPS4
+                              ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          }`}
+                        >
+                          {isPS4 ? (
+                            <Gamepad2 className="w-5 h-5" />
+                          ) : isSnooker ? (
+                            <Layers className="w-5 h-5" />
+                          ) : (
+                            <CircleDot className="w-5 h-5" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-base font-extrabold text-slate-900 font-display">
+                              {group.gameType}
+                            </h4>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-mono">
+                              {totalCount} {totalCount === 1 ? (isPS4 ? 'Station' : 'Table') : (isPS4 ? 'Stations' : 'Tables')}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-mono font-medium">
+                            ₹{group.ratePerHour}/hr
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Availability status badge */}
+                      <div>
+                        {availableCount === totalCount ? (
+                          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5 font-mono">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            All Free ({totalCount})
+                          </span>
+                        ) : availableCount === 0 ? (
+                          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1.5 font-mono">
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                            All Full ({totalCount})
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5 font-mono">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                            {availableCount}/{totalCount} Free
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Tables included in this Game Type card */}
+                    <div className="p-4 space-y-2.5 flex-1 flex flex-col justify-start">
+                      {group.tables.map((table) => {
+                        const isOccupied = table.status === 'occupied';
+                        const activePlay = activePlays.find((p) => p.tableId === table.id);
+
+                        return (
+                          <div
+                            key={table.id}
+                            className={`p-3 rounded-xl border transition-all ${
+                              isOccupied
+                                ? 'bg-blue-50/60 border-blue-200 shadow-2xs'
+                                : 'bg-slate-50/70 border-slate-200/90 hover:border-slate-300 hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-extrabold text-sm text-slate-900 font-display truncate">
+                                  {table.name || (isPS4 ? `Station ${table.number}` : `Table ${table.number}`)}
+                                </span>
+                                <span
+                                  className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border uppercase tracking-wider shrink-0 ${
+                                    isOccupied
+                                      ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                      : 'bg-emerald-100/70 text-emerald-800 border-emerald-200'
+                                  }`}
+                                >
+                                  {isOccupied ? 'Occupied' : 'Available'}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-1 shrink-0">
+                                {!isOccupied ? (
+                                  <>
+                                    {/* Edit Name & Price Button */}
+                                    <button
+                                      onClick={() => handleStartRenameTable(table)}
+                                      title="Edit Table Name & Price"
+                                      className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    {/* Delete Button */}
+                                    <button
+                                      onClick={() => handleDeleteTable(table)}
+                                      title="Delete table from database"
+                                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    <button
+                                      onClick={() => setSelectedAssignTable(table)}
+                                      className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all shadow-2xs hover:shadow-xs flex items-center gap-1 cursor-pointer active:scale-95 ml-1"
+                                    >
+                                      <span>+ Assign</span>
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200 font-mono tracking-wider uppercase">
+                                    In Play
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Active play info if occupied */}
+                            {isOccupied && activePlay ? (
+                              <div className="mt-2 pt-2 border-t border-blue-100 flex items-center justify-between text-xs">
+                                <button
+                                  onClick={() =>
+                                    router.push(
+                                      `/customers?phone=${encodeURIComponent(
+                                        activePlay.customerPhone || activePlay.customerName
+                                      )}`
+                                    )
+                                  }
+                                  className="font-bold text-slate-900 hover:text-blue-600 truncate pr-2 flex items-center gap-1.5 max-w-[65%]"
+                                  title="Open customer profile"
+                                >
+                                  <User className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                                  <span className="truncate">{activePlay.customerName}</span>
+                                </button>
+
+                                <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-md border border-blue-200/80 shrink-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                                  <span>{activePlay.durationStr}</span>
+                                </div>
+                              </div>
+                            ) : !isOccupied ? (
+                              <p className="mt-1 text-[11px] text-slate-400 font-medium">
+                                Ready for play
+                              </p>
+                            ) : (
+                              <p className="mt-1 text-[11px] text-slate-500 italic">
+                                Station marked occupied
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -729,17 +815,89 @@ export default function DashboardPage() {
       </main>
 
       {/* Modals */}
-      {showNewSession && (
-        <NewSessionModal
-          tables={tables}
-          staffUsername={user.username}
-          activeSessions={activeSessions}
-          onClose={() => setShowNewSession(false)}
-          onSuccess={(session) => {
-            setShowNewSession(false);
-            router.push(`/sessions/${session.id}`);
-          }}
-        />
+      {editingTable && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl border border-slate-200 w-full max-w-sm shadow-xl overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 font-display">Edit Table Name & Price</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  {editingTable.gameType} #{editingTable.number}
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingTable(null)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRenameTable} className="p-5 space-y-4">
+              {renameError && (
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+                  {renameError}
+                </div>
+              )}
+
+              <div className="space-y-3.5">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider font-mono mb-1.5">
+                    Custom Display Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    placeholder="e.g. VIP Pool, Corner Snooker, Star Table"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-slate-500 bg-white"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider font-mono mb-1.5">
+                    Hourly Price / Rate (₹/hr)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-2.5 text-sm font-mono text-slate-400">₹</span>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      step="10"
+                      value={renameRate}
+                      onChange={(e) => setRenameRate(e.target.value)}
+                      placeholder="160"
+                      className="w-full pl-8 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-sm font-mono font-bold focus:outline-none focus:ring-1 focus:ring-slate-500 bg-white"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                    Time played on this table will be billed at this hourly rate.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingTable(null)}
+                  className="flex-1 py-2 px-3 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={renameLoading || !renameValue.trim()}
+                  className="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all disabled:opacity-40 cursor-pointer"
+                >
+                  {renameLoading ? 'Saving...' : 'Save Name'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {showRegisterCustomer && (
@@ -781,77 +939,12 @@ export default function DashboardPage() {
         />
       )}
 
-      {switchTableSession && (
-        <SwitchTableModal 
-          session={switchTableSession}
-          onClose={() => setSwitchTableSession(null)}
-          onSuccess={fetchData}
-        />
-      )}
-
-      {/* Active Sessions Quick-Peek Drawer */}
-      {showActiveDrawer && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div 
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity" 
-            onClick={() => setShowActiveDrawer(false)}
-          ></div>
-          
-          <div className="relative w-full max-w-sm bg-white border-l border-slate-200 h-full shadow-2xl flex flex-col animate-in slide-in-from-right">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900 font-display uppercase tracking-wide">Live Lounge Sessions</h2>
-                <p className="text-xs text-slate-500">{activeSessions.length} active sessions</p>
-              </div>
-              <button 
-                onClick={() => setShowActiveDrawer(false)} 
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-4 border-b border-slate-100">
-              <input
-                type="text"
-                placeholder="Search by customer name..."
-                value={liveSessionSearch}
-                onChange={(e) => setLiveSessionSearch(e.target.value)}
-                className="w-full px-3 py-2 text-xs font-semibold border border-slate-200 rounded-xl bg-slate-50 text-slate-900 focus:outline-none"
-              />
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {activeSessions
-                .filter(s => s.customerName.toLowerCase().includes(liveSessionSearch.toLowerCase()))
-                .map((s) => (
-                  <div key={s.id} className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex justify-between items-center text-xs">
-                    <div>
-                      <p className="font-bold text-slate-900">{s.customerName}</p>
-                      <p className="text-[10px] text-slate-500 font-mono">
-                        {new Date(s.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => router.push(`/sessions/${s.id}`)}
-                      className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Add Items Modal */}
-      {activeOrderSessionId && (
+      {orderVisitId && (
         <AddOrderModal
-          sessionId={activeOrderSessionId}
-          onClose={() => setActiveOrderSessionId(null)}
+          sessionId={orderVisitId}
+          onClose={() => setOrderVisitId(null)}
           onSuccess={() => {
-            setActiveOrderSessionId(null);
+            setOrderVisitId(null);
             fetchData();
           }}
         />

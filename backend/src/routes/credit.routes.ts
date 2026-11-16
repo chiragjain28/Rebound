@@ -5,6 +5,107 @@ import { broadcast } from '../websocket';
 
 const router = Router();
 
+// 0. Get Credit Analytics (Totals & Month-wise breakdown)
+router.get('/analytics', authenticateToken, async (req, res) => {
+  try {
+    const debtorsCount = await prisma.customer.count({
+      where: { currentCreditDue: { gt: 0 } }
+    });
+
+    const totalDueAgg = await prisma.customer.aggregate({
+      where: { currentCreditDue: { gt: 0 } },
+      _sum: { currentCreditDue: true }
+    });
+    const totalOutstanding = totalDueAgg._sum.currentCreditDue || 0;
+
+    const creditAgg = await prisma.creditRecord.aggregate({
+      _sum: { amount: true, settledAmount: true },
+      _count: { id: true }
+    });
+    const totalCreditGiven = creditAgg._sum.amount || 0;
+    const totalCreditSettled = creditAgg._sum.settledAmount || 0;
+    const overallRecoveryRate = totalCreditGiven > 0 
+      ? Math.round((totalCreditSettled / totalCreditGiven) * 1000) / 10 
+      : 0;
+
+    const allCreditRecords = await prisma.creditRecord.findMany({
+      select: {
+        id: true,
+        customerId: true,
+        amount: true,
+        settledAmount: true,
+        status: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    const monthsMap = new Map<string, {
+      monthKey: string;
+      label: string;
+      incurred: number;
+      settled: number;
+      outstanding: number;
+      recordsCount: number;
+      debtors: Set<number>;
+    }>();
+
+    for (const cr of allCreditRecords) {
+      const d = new Date(cr.createdAt);
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+      if (!monthsMap.has(monthKey)) {
+        monthsMap.set(monthKey, {
+          monthKey,
+          label,
+          incurred: 0,
+          settled: 0,
+          outstanding: 0,
+          recordsCount: 0,
+          debtors: new Set()
+        });
+      }
+
+      const m = monthsMap.get(monthKey)!;
+      m.incurred += cr.amount;
+      m.settled += cr.settledAmount;
+      m.recordsCount += 1;
+      if (cr.status === 'unpaid') {
+        m.outstanding += (cr.amount - cr.settledAmount);
+      }
+      if (cr.customerId) {
+        m.debtors.add(cr.customerId);
+      }
+    }
+
+    const monthlyBreakdown = Array.from(monthsMap.values()).map(m => ({
+      monthKey: m.monthKey,
+      label: m.label,
+      incurred: Math.round(m.incurred * 100) / 100,
+      settled: Math.round(m.settled * 100) / 100,
+      outstanding: Math.round(m.outstanding * 100) / 100,
+      recoveryRate: m.incurred > 0 ? Math.round((m.settled / m.incurred) * 1000) / 10 : 0,
+      recordsCount: m.recordsCount,
+      debtorsCount: m.debtors.size
+    }));
+
+    res.json({
+      summary: {
+        totalOutstanding: Math.round(totalOutstanding * 100) / 100,
+        debtorsCount,
+        totalCreditGiven: Math.round(totalCreditGiven * 100) / 100,
+        totalCreditSettled: Math.round(totalCreditSettled * 100) / 100,
+        overallRecoveryRate
+      },
+      monthlyBreakdown
+    });
+  } catch (error: any) {
+    console.error('Error fetching credit analytics:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 1. Get paginated and searchable list of debtors / credit accounts
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -144,8 +245,8 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-// 3. Settle / Pay a credit record
-router.post('/:id/pay', authenticateToken, async (req, res) => {
+// 3. Settle / Pay a credit record (Supports both /credits/:id/pay and legacy /udhar/:id/settle)
+const handlePayOrSettleCredit = async (req: any, res: any) => {
   try {
     const creditId = parseInt(req.params.id);
     const creditRecord = await prisma.creditRecord.findUnique({
@@ -213,6 +314,9 @@ router.post('/:id/pay', authenticateToken, async (req, res) => {
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
-});
+};
+
+router.post('/:id/pay', authenticateToken, handlePayOrSettleCredit);
+router.post('/:id/settle', authenticateToken, handlePayOrSettleCredit);
 
 export default router;

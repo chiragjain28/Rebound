@@ -40,6 +40,40 @@ async function handleCustomerSearch(req: any, res: any) {
 router.get('/', authenticateToken, handleCustomerSearch);
 router.get('/search', authenticateToken, handleCustomerSearch);
 
+// 1b. GET /api/customers/all - Full customer directory list for autocompletes & modals
+router.get('/all', authenticateToken, async (req, res) => {
+  try {
+    const customers = await prisma.customer.findMany({
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        currentCreditDue: true,
+        totalVisits: true
+      }
+    });
+
+    const formatted = customers.map(c => ({
+      id: c.id,
+      name: c.name,
+      customerName: c.name,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      phone: c.phone,
+      customerPhone: c.phone,
+      currentCreditDue: c.currentCreditDue,
+      totalVisits: c.totalVisits
+    }));
+
+    res.json(formatted);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Helper to get local date string YYYY-MM-DD
 const getLocalDateStr = (d: Date | string | number = new Date()): string => {
   const date = new Date(d);
@@ -98,6 +132,19 @@ router.get('/:phone/history', authenticateToken, async (req, res) => {
       },
       orderBy: { startTime: 'desc' }
     });
+
+    // Fetch all historical legacy sessions for this customer
+    const legacySessions = await prisma.legacySession.findMany({
+      where: { customerId },
+      orderBy: { startTime: 'desc' }
+    });
+
+    const legacySpend = legacySessions.reduce((sum, ls) => sum + (ls.totalBill || 0), 0);
+    const legacyPaid = legacySessions.reduce((sum, ls) => sum + (ls.paidAmount || 0), 0);
+    const earliestLegacy = legacySessions.length > 0 ? legacySessions[legacySessions.length - 1] : null;
+    const memberSince = (earliestLegacy && new Date(earliestLegacy.startTime) < new Date(customer.createdAt))
+      ? earliestLegacy.startTime
+      : customer.createdAt;
 
     // Fetch all unpaid credit records for customer
     const unpaidCredits = await prisma.creditRecord.findMany({
@@ -190,13 +237,22 @@ router.get('/:phone/history', authenticateToken, async (req, res) => {
         });
       }
 
+      const vSettledCredit = v.creditRecords.reduce((sum, c) => sum + (c.settledAmount || 0), 0);
+      const vUnpaidCredit = v.creditRecords.filter(c => c.status === 'unpaid').reduce((sum, c) => sum + (c.amount - c.settledAmount), 0);
+      const vTotalPaid = vPaid + vSettledCredit;
+      const vBalanceDue = v.creditRecords.length > 0 ? vUnpaidCredit : Math.max(0, visitTotal - vPaid);
+      let vPaymentStatus = v.paymentStatus;
+      if (vBalanceDue === 0 && (vTotalPaid > 0 || visitTotal === 0)) {
+        vPaymentStatus = 'paid';
+      } else if (vBalanceDue > 0 && vTotalPaid > 0) {
+        vPaymentStatus = 'partially_paid';
+      }
+
       const dayGroup = daysMap.get(dateKey)!;
       dayGroup.totalDayBill += visitTotal;
-      dayGroup.totalDayPaid += vPaid;
-
-      const vCreditAdded = v.creditRecords.filter(c => c.status === 'unpaid').reduce((sum, c) => sum + (c.amount - c.settledAmount), 0);
-      dayGroup.dayCreditAdded += vCreditAdded;
-      dayGroup.dayUdharAdded += vCreditAdded;
+      dayGroup.totalDayPaid += vTotalPaid;
+      dayGroup.dayCreditAdded += vUnpaidCredit;
+      dayGroup.dayUdharAdded += vUnpaidCredit;
 
       dayGroup.visits.push({
         id: v.id,
@@ -210,9 +266,9 @@ router.get('/:phone/history', authenticateToken, async (req, res) => {
         menuCost: v.itemsTotal,
         itemsTotal: v.itemsTotal,
         customAmount: v.customAmount,
-        paidAmount: vPaid,
-        balanceDue: Math.max(0, visitTotal - vPaid),
-        paymentStatus: v.paymentStatus,
+        paidAmount: vTotalPaid,
+        balanceDue: vBalanceDue,
+        paymentStatus: vPaymentStatus,
         tablePlays: calculatedTablePlays,
         orders: v.orders.map(o => ({
           id: o.id,
@@ -289,6 +345,9 @@ router.get('/:phone/history', authenticateToken, async (req, res) => {
 
     const timeline = Array.from(daysMap.values()).sort((a, b) => b.date.localeCompare(a.date));
 
+    const totalLifetimeSpend = Math.round((totalLifetimeBill + legacySpend) * 100) / 100;
+    const totalLifetimePayment = Math.round((totalLifetimePaid + legacyPaid) * 100) / 100;
+
     res.json({
       customer: {
         id: customer.id,
@@ -296,10 +355,11 @@ router.get('/:phone/history', authenticateToken, async (req, res) => {
         firstName: customer.firstName,
         lastName: customer.lastName,
         phone: customer.phone,
-        memberSince: customer.createdAt,
+        memberSince,
         totalVisits: visits.length,
-        lifetimeSpend: totalLifetimeBill,
-        lifetimePaid: totalLifetimePaid,
+        totalLegacySessions: legacySessions.length,
+        lifetimeSpend: totalLifetimeSpend,
+        lifetimePaid: totalLifetimePayment,
         currentCreditDue,
         currentUdharDue: currentCreditDue,
         previousCreditDue,
@@ -307,7 +367,24 @@ router.get('/:phone/history', authenticateToken, async (req, res) => {
         unpaidCreditsBreakdown: unpaidCreditBreakdown,
         unpaidUdharsBreakdown: unpaidCreditBreakdown
       },
-      timeline
+      timeline,
+      legacySessions: legacySessions.map(ls => ({
+        id: ls.id,
+        startTime: ls.startTime,
+        endTime: ls.endTime,
+        status: ls.status,
+        staffUsername: ls.staffUsername,
+        tablesTotal: ls.tablesTotal,
+        itemsTotal: ls.itemsTotal,
+        customAmount: ls.customAmount,
+        totalBill: ls.totalBill,
+        paidAmount: ls.paidAmount,
+        balanceDue: ls.balanceDue,
+        paymentStatus: ls.paymentStatus,
+        orders: ls.orders || [],
+        tablePlays: ls.tablePlays || [],
+        payments: ls.payments || []
+      }))
     });
   } catch (error: any) {
     console.error('Error in customer history:', error);
@@ -348,6 +425,65 @@ router.get('/:phone/payments', authenticateToken, async (req, res) => {
     });
 
     res.json(payments);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 3b. GET /api/customers/:phone/eligibility - Deletion eligibility check (guarantees CustomerManagerModal can verify status safely)
+router.get('/:phone/eligibility', authenticateToken, async (req, res) => {
+  try {
+    const rawParam = decodeURIComponent(req.params.phone.trim());
+    const customer = await prisma.customer.findFirst({
+      where: {
+        OR: [
+          { phone: rawParam },
+          { name: { equals: rawParam, mode: 'insensitive' } },
+          ...(!isNaN(Number(rawParam)) && Number(rawParam) > 0 && Number(rawParam) <= 2147483647 && rawParam.length <= 8 ? [{ id: Number(rawParam) }] : [])
+        ]
+      }
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    const [activeVisit, unpaidCredit] = await Promise.all([
+      prisma.visit.findFirst({
+        where: { customerId: customer.id, status: 'active' },
+        include: {
+          tablePlays: {
+            where: { endTime: null },
+            include: { table: true }
+          }
+        }
+      }),
+      prisma.creditRecord.findFirst({
+        where: { customerId: customer.id, status: 'unpaid' }
+      })
+    ]);
+
+    const hasActiveSession = !!activeVisit;
+    const hasUnpaidCredit = !!unpaidCredit || (customer.currentCreditDue > 0);
+    const canDelete = !hasActiveSession && !hasUnpaidCredit;
+
+    let activeSessionInfo = null;
+    if (activeVisit) {
+      const runningPlay = activeVisit.tablePlays?.[0];
+      const tableName = runningPlay?.table?.name || (runningPlay?.table ? `${runningPlay.table.gameType} Table ${runningPlay.table.number}` : runningPlay?.gameType || 'Active Table');
+      activeSessionInfo = {
+        id: activeVisit.id,
+        tableName
+      };
+    }
+
+    res.json({
+      canDelete,
+      hasActiveSession,
+      activeSession: activeSessionInfo,
+      hasUnpaidCredit,
+      currentCreditDue: customer.currentCreditDue
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

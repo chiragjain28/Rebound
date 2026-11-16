@@ -35,8 +35,8 @@ export default function LoginPage() {
         
         {/* Brand Header */}
         <div className="text-center space-y-3">
-          <div className="mx-auto w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center shadow-xs">
-            <span className="text-2xl">🎱</span>
+          <div className="mx-auto w-14 h-14 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center shadow-sm">
+            <span className="text-2xl font-black font-display tracking-tight text-white">R</span>
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 uppercase font-display">

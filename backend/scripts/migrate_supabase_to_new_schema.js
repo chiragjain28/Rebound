@@ -1,7 +1,7 @@
 const { Client } = require('pg');
 
 const REMOTE_URL = process.env.SOURCE_DB_URL || 'postgresql://postgres.wkgbyztenamsplozxgoc:Rebound%402april26@aws-1-ap-south-1.pooler.supabase.com:5432/postgres';
-const TARGET_URL = process.env.TARGET_DB_URL || 'postgresql://vanshikabhujang@localhost:5432/rebound_local';
+const TARGET_URL = process.env.TARGET_DB_URL || process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/rebound_local';
 
 async function migrateData() {
   console.log('🚀 Starting Zero-Loss Migration from Supabase to New Schema...');
@@ -383,10 +383,21 @@ async function migrateData() {
     console.log(`  - Orders: ${targetOrders} (Expected: ${orders.length})`);
     console.log(`  - Payments: ${targetPayments} (Expected: ${payments.length})`);
     console.log(`  - Table Plays: ${targetTablePlays} (Expected: ${tablePlays.length})`);
+    const expectedRevenue = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const expectedUnpaidCredit = udhars.filter(u => u.status === 'unpaid').reduce((sum, u) => sum + (Number(u.amount) || 0), 0);
+
+    console.log(`  - Staff: ${targetStaff} (Expected: ${staff.length})`);
+    console.log(`  - Tables: ${targetTables} (Expected: ${tables.length})`);
+    console.log(`  - Menu Items: ${targetMenuItems} (Expected: ${menuItems.length})`);
+    console.log(`  - Customers: ${targetCustomers} (Expected: ${cleanCustomers.length})`);
+    console.log(`  - Visits: ${targetVisits} (Expected: ${sessions.length})`);
+    console.log(`  - Orders: ${targetOrders} (Expected: ${orders.length})`);
+    console.log(`  - Payments: ${targetPayments} (Expected: ${payments.length})`);
+    console.log(`  - Table Plays: ${targetTablePlays} (Expected: ${tablePlays.length})`);
     console.log(`  - Credit Records: ${targetCredits} (Expected: ${udhars.length})`);
-    console.log(`  - Total Revenue: ₹${Number(targetRevenue).toFixed(2)} (Expected: ₹289150.00)`);
-    console.log(`  - Unpaid Credit Records Sum: ₹${Number(targetUnpaidCredit).toFixed(2)} (Expected: ₹33399.00)`);
-    console.log(`  - Customer Outstanding Credit Sum: ₹${Number(targetCustomerCreditSum).toFixed(2)} (Expected: ₹33399.00)`);
+    console.log(`  - Total Revenue: ₹${Number(targetRevenue).toFixed(2)} (Expected: ₹${expectedRevenue.toFixed(2)})`);
+    console.log(`  - Unpaid Credit Records Sum: ₹${Number(targetUnpaidCredit).toFixed(2)} (Expected: ₹${expectedUnpaidCredit.toFixed(2)})`);
+    console.log(`  - Customer Outstanding Credit Sum: ₹${Number(targetCustomerCreditSum).toFixed(2)} (Expected: ₹${expectedUnpaidCredit.toFixed(2)})`);
 
     const errors = [];
     if (Number(targetStaff) !== staff.length) errors.push('Staff count mismatch');
@@ -397,9 +408,9 @@ async function migrateData() {
     if (Number(targetPayments) !== payments.length) errors.push('Payments count mismatch');
     if (Number(targetTablePlays) !== tablePlays.length) errors.push('TablePlays count mismatch');
     if (Number(targetCredits) !== udhars.length) errors.push('Credit records count mismatch');
-    if (Math.abs(Number(targetRevenue) - 289150) > 0.01) errors.push('Revenue sum mismatch');
-    if (Math.abs(Number(targetUnpaidCredit) - 33399) > 0.01) errors.push('Unpaid credit sum mismatch');
-    if (Math.abs(Number(targetCustomerCreditSum) - 33399) > 0.01) errors.push('Customer credit balance mismatch');
+    if (Math.abs(Number(targetRevenue) - expectedRevenue) > 0.01) errors.push('Revenue sum mismatch');
+    if (Math.abs(Number(targetUnpaidCredit) - expectedUnpaidCredit) > 0.01) errors.push('Unpaid credit sum mismatch');
+    if (Math.abs(Number(targetCustomerCreditSum) - expectedUnpaidCredit) > 0.01) errors.push('Customer credit balance mismatch');
 
     if (errors.length > 0) {
       console.error('\n❌ VALIDATION ERRORS:', errors);

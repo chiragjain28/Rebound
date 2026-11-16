@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Upload, Plus, Download, Search, Edit3, Check, RefreshCw, Tag, AlertCircle } from 'lucide-react';
+import { X, Upload, Plus, Download, Search, Edit3, Check, RefreshCw, Tag, AlertCircle, Trash2 } from 'lucide-react';
 import { api } from '../lib/api';
 
 interface MenuItem {
@@ -35,6 +35,8 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
   const [editPrice, setEditPrice] = useState('');
   const [editCategory, setEditCategory] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   const [hasEdited, setHasEdited] = useState(false);
 
   // Bulk Upload State
@@ -149,6 +151,27 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
       setError(err.message || 'Failed to update item');
     } finally {
       setSavingEdit(false);
+    }
+  };
+
+  // Delete an item
+  const handleDeleteItem = async (item: MenuItem) => {
+    try {
+      setDeletingItemId(item.id);
+      setError('');
+      await api.delete(`/menu/${item.id}`);
+      setMenuItems((prev) => prev.filter((i) => i.id !== item.id));
+      setConfirmDeleteId(null);
+      if (editingItemId === item.id) {
+        setEditingItemId(null);
+      }
+      setHasEdited(true);
+      setSuccessMsg(`"${item.name}" deleted from menu.`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to delete item');
+    } finally {
+      setDeletingItemId(null);
     }
   };
 
@@ -467,12 +490,42 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                     <div
                       key={item.id}
                       className={`rounded-xl border p-3 transition-all ${
-                        editingItemId === item.id
+                        confirmDeleteId === item.id
+                          ? 'bg-rose-50/50 border-rose-300 shadow-xs'
+                          : editingItemId === item.id
                           ? 'bg-slate-50 border-slate-300 shadow-xs'
                           : 'bg-white border-slate-200 hover:border-slate-300'
                       }`}
                     >
-                      {editingItemId === item.id ? (
+                      {confirmDeleteId === item.id ? (
+                        /* Delete Confirmation Prompt */
+                        <div className="flex items-center justify-between gap-3 animate-in fade-in">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Trash2 className="h-4 w-4 text-rose-600 shrink-0" />
+                            <p className="text-xs text-rose-900 font-semibold truncate">
+                              Delete <b>&quot;{item.name}&quot;</b> from menu?
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(null)}
+                              disabled={deletingItemId === item.id}
+                              className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteItem(item)}
+                              disabled={deletingItemId === item.id}
+                              className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                            >
+                              {deletingItemId === item.id ? 'Deleting...' : 'Confirm Delete'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : editingItemId === item.id ? (
                         /* Inline Edit Form */
                         <div className="space-y-3">
                           <div className="text-[10px] font-mono text-slate-700 font-bold uppercase tracking-wider flex items-center gap-1.5">
@@ -514,12 +567,20 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                               <option value="Cigarettes">Cigarettes</option>
                             </select>
 
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(item.id)}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer mr-1"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                Delete
+                              </button>
                               <button
                                 type="button"
                                 onClick={handleCancelEdit}
                                 disabled={savingEdit}
-                                className="px-3 py-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors"
+                                className="px-3 py-1 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors cursor-pointer"
                               >
                                 Cancel
                               </button>
@@ -527,7 +588,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                                 type="button"
                                 onClick={() => handleSaveEdit(item.id)}
                                 disabled={savingEdit}
-                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-xs disabled:opacity-50"
+                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-wider transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                               >
                                 {savingEdit ? 'Saving...' : 'Save'}
                               </button>
@@ -554,14 +615,27 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ onClose, onSuccess
                             <span className="font-mono font-bold text-slate-900 text-sm">
                               ₹{item.price.toFixed(2)}
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => handleStartEdit(item)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-semibold transition-all shadow-xs"
-                            >
-                              <Edit3 className="h-3 w-3" />
-                              Edit
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setConfirmDeleteId(null);
+                                  handleStartEdit(item);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-semibold transition-all shadow-xs cursor-pointer"
+                              >
+                                <Edit3 className="h-3 w-3" />
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmDeleteId(item.id)}
+                                title={`Delete ${item.name}`}
+                                className="inline-flex items-center justify-center p-1.5 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 rounded-lg transition-all shadow-xs cursor-pointer"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}

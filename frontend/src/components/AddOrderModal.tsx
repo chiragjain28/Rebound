@@ -7,7 +7,8 @@ import { api } from '../lib/api';
 import { X, Plus, Minus, Trash2, ShoppingBag, Search } from 'lucide-react';
 
 interface AddOrderModalProps {
-  sessionId: string;
+  sessionId?: string;
+  customerId?: number | string;
   onClose: () => void;
   onSuccess: (order: any) => void;
 }
@@ -25,6 +26,7 @@ const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string
 
 export const AddOrderModal: React.FC<AddOrderModalProps> = ({
   sessionId,
+  customerId,
   onClose,
   onSuccess
 }) => {
@@ -103,7 +105,8 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({
     setLoading(true);
     try {
       const data = await api.post('/orders', {
-        sessionId,
+        sessionId: sessionId || undefined,
+        customerId: customerId || undefined,
         items: cart.map((ci) => ({
           menuItemId: ci.menuItem.id.toString(),
           quantity: ci.quantity

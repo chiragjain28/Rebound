@@ -1,0 +1,3128 @@
+{
+  "auditTimestamp": "2026-10-22T20:45:45.207Z",
+  "totals": {
+    "totalRawUdharAmount": 112865,
+    "totalUnpaidRawUdharAmount": 35539,
+    "totalPaidRawUdharAmount": 77326,
+    "totalRawPaymentsAmount": 305064,
+    "sumMappedUnpaidCredit": 35539,
+    "discrepancy": 0,
+    "activeDebtorsCount": 52,
+    "totalCustomers": 267
+  },
+  "activeDebtors": [
+    {
+      "id": 29,
+      "name": "harshit",
+      "phone": "7354661156",
+      "totalUnpaidOutstanding": 8625,
+      "totalPaidCredit": 9501,
+      "totalUdharCount": 49,
+      "totalSessions": 43,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-04",
+          "count": 1,
+          "amount": 1075,
+          "items": [
+            {
+              "id": 620,
+              "amount": 1075,
+              "notes": "Udhar",
+              "sessionId": "03102026171018_harshit",
+              "createdAt": "2026-10-04T11:53:52.800Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-05",
+          "count": 1,
+          "amount": 764,
+          "items": [
+            {
+              "id": 641,
+              "amount": 764,
+              "notes": "Udhar",
+              "sessionId": "05102026084449_harshit",
+              "createdAt": "2026-10-05T12:50:52.966Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-07",
+          "count": 1,
+          "amount": 765,
+          "items": [
+            {
+              "id": 662,
+              "amount": 765,
+              "notes": "Udhar",
+              "sessionId": "06102026093753_harshit",
+              "createdAt": "2026-10-07T01:42:31.067Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-10",
+          "count": 2,
+          "amount": 1336,
+          "items": [
+            {
+              "id": 718,
+              "amount": 1256,
+              "notes": "Udhar",
+              "sessionId": "07102026133452_harshit",
+              "createdAt": "2026-10-10T09:29:13.611Z"
+            },
+            {
+              "id": 720,
+              "amount": 80,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-10T09:41:18.399Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-11",
+          "count": 3,
+          "amount": 590,
+          "items": [
+            {
+              "id": 736,
+              "amount": 180,
+              "notes": "Udhar",
+              "sessionId": "10102026180811_harshit",
+              "createdAt": "2026-10-11T04:51:36.790Z"
+            },
+            {
+              "id": 754,
+              "amount": 395,
+              "notes": "Udhar",
+              "sessionId": "11102026141507_harshit",
+              "createdAt": "2026-10-11T12:35:03.553Z"
+            },
+            {
+              "id": 757,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-11T12:41:25.721Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-12",
+          "count": 1,
+          "amount": 115,
+          "items": [
+            {
+              "id": 772,
+              "amount": 115,
+              "notes": "Udhar",
+              "sessionId": "12102026120718_harshit",
+              "createdAt": "2026-10-12T12:24:19.604Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-13",
+          "count": 1,
+          "amount": 267,
+          "items": [
+            {
+              "id": 801,
+              "amount": 267,
+              "notes": "Udhar",
+              "sessionId": "13102026144615_harshit",
+              "createdAt": "2026-10-13T12:59:08.329Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-14",
+          "count": 1,
+          "amount": 240,
+          "items": [
+            {
+              "id": 811,
+              "amount": 240,
+              "notes": "Udhar",
+              "sessionId": "14102026110820_harshit",
+              "createdAt": "2026-10-14T12:34:46.103Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-16",
+          "count": 2,
+          "amount": 1824,
+          "items": [
+            {
+              "id": 832,
+              "amount": 1182,
+              "notes": "Udhar",
+              "sessionId": "15102026093523_harshit",
+              "createdAt": "2026-10-16T03:06:48.308Z"
+            },
+            {
+              "id": 843,
+              "amount": 642,
+              "notes": "Udhar",
+              "sessionId": "16102026104827_harshit",
+              "createdAt": "2026-10-16T11:18:37.767Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-17",
+          "count": 1,
+          "amount": 756,
+          "items": [
+            {
+              "id": 862,
+              "amount": 756,
+              "notes": "Udhar",
+              "sessionId": "17102026110202_harshit",
+              "createdAt": "2026-10-17T12:18:37.023Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-18",
+          "count": 2,
+          "amount": 245,
+          "items": [
+            {
+              "id": 875,
+              "amount": 177,
+              "notes": "Udhar",
+              "sessionId": "18102026100522_harshit",
+              "createdAt": "2026-10-18T06:14:16.285Z"
+            },
+            {
+              "id": 891,
+              "amount": 68,
+              "notes": "Udhar",
+              "sessionId": "18102026121526_harshit",
+              "createdAt": "2026-10-18T11:51:30.318Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 633,
+          "items": [
+            {
+              "id": 911,
+              "amount": 633,
+              "notes": "Udhar",
+              "sessionId": "19102026084321_harshit",
+              "createdAt": "2026-10-19T12:33:03.121Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-20",
+          "count": 1,
+          "amount": 15,
+          "items": [
+            {
+              "id": 927,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-20T11:09:45.397Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 330,
+      "name": "naman tiwari",
+      "phone": "7489443395",
+      "totalUnpaidOutstanding": 6793,
+      "totalPaidCredit": 3549,
+      "totalUdharCount": 31,
+      "totalSessions": 28,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-28",
+          "count": 1,
+          "amount": 140,
+          "items": [
+            {
+              "id": 446,
+              "amount": 140,
+              "notes": "Udhar",
+              "sessionId": "26092026102014_namantiwari",
+              "createdAt": "2026-09-28T01:19:42.849Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-30",
+          "count": 2,
+          "amount": 1240,
+          "items": [
+            {
+              "id": 488,
+              "amount": 1106,
+              "notes": "Udhar",
+              "sessionId": "28092026135828_namantiwari",
+              "createdAt": "2026-09-30T09:05:04.990Z"
+            },
+            {
+              "id": 510,
+              "amount": 134,
+              "notes": "Udhar",
+              "sessionId": "30092026180659_namantiwari",
+              "createdAt": "2026-09-30T13:15:06.064Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-01",
+          "count": 1,
+          "amount": 273,
+          "items": [
+            {
+              "id": 521,
+              "amount": 273,
+              "notes": "Udhar",
+              "sessionId": "01102026083501_namantiwari",
+              "createdAt": "2026-10-01T07:05:43.732Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-02",
+          "count": 1,
+          "amount": 964,
+          "items": [
+            {
+              "id": 577,
+              "amount": 964,
+              "notes": "Udhar",
+              "sessionId": "01102026155941_namantiwari",
+              "createdAt": "2026-10-02T13:01:26.103Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-05",
+          "count": 1,
+          "amount": 1463,
+          "items": [
+            {
+              "id": 642,
+              "amount": 1463,
+              "notes": "Udhar",
+              "sessionId": "03102026164824_namantiwari",
+              "createdAt": "2026-10-05T12:51:08.471Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-07",
+          "count": 1,
+          "amount": 311,
+          "items": [
+            {
+              "id": 667,
+              "amount": 311,
+              "notes": "Udhar",
+              "sessionId": "06102026090709_namantiwari",
+              "createdAt": "2026-10-07T01:44:15.496Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-10",
+          "count": 1,
+          "amount": 64,
+          "items": [
+            {
+              "id": 725,
+              "amount": 64,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-10T09:59:43.989Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-11",
+          "count": 1,
+          "amount": 555,
+          "items": [
+            {
+              "id": 739,
+              "amount": 555,
+              "notes": "Udhar",
+              "sessionId": "08102026111826_namantiwari",
+              "createdAt": "2026-10-11T04:53:26.470Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-12",
+          "count": 2,
+          "amount": 160,
+          "items": [
+            {
+              "id": 767,
+              "amount": 20,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-12T10:53:40.856Z"
+            },
+            {
+              "id": 771,
+              "amount": 140,
+              "notes": "Udhar",
+              "sessionId": "12102026120236_namantiwari",
+              "createdAt": "2026-10-12T12:24:02.270Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-13",
+          "count": 1,
+          "amount": 190,
+          "items": [
+            {
+              "id": 796,
+              "amount": 190,
+              "notes": "Udhar",
+              "sessionId": "13102026102226_namantiwari",
+              "createdAt": "2026-10-13T12:51:08.353Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-16",
+          "count": 1,
+          "amount": 496,
+          "items": [
+            {
+              "id": 850,
+              "amount": 496,
+              "notes": "Udhar",
+              "sessionId": "14102026110419_namantiwari",
+              "createdAt": "2026-10-16T13:12:56.955Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-17",
+          "count": 1,
+          "amount": 51,
+          "items": [
+            {
+              "id": 866,
+              "amount": 51,
+              "notes": "Udhar",
+              "sessionId": "17102026115148_namantiwari",
+              "createdAt": "2026-10-17T12:20:37.572Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-18",
+          "count": 1,
+          "amount": 102,
+          "items": [
+            {
+              "id": 873,
+              "amount": 102,
+              "notes": "Udhar",
+              "sessionId": "18102026113705_namantiwari",
+              "createdAt": "2026-10-18T06:13:36.625Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 88,
+          "items": [
+            {
+              "id": 918,
+              "amount": 88,
+              "notes": "Udhar",
+              "sessionId": "19102026171205_namantiwari",
+              "createdAt": "2026-10-19T12:52:45.835Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-20",
+          "count": 1,
+          "amount": 139,
+          "items": [
+            {
+              "id": 922,
+              "amount": 139,
+              "notes": "Udhar",
+              "sessionId": "20102026125342_namantiwari",
+              "createdAt": "2026-10-20T09:13:01.725Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 357,
+          "items": [
+            {
+              "id": 955,
+              "amount": 357,
+              "notes": "Udhar",
+              "sessionId": "21102026113634_namantiwari",
+              "createdAt": "2026-10-21T12:38:13.951Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-22",
+          "count": 2,
+          "amount": 200,
+          "items": [
+            {
+              "id": 969,
+              "amount": 100,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-22T09:10:31.540Z"
+            },
+            {
+              "id": 970,
+              "amount": 100,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-22T09:10:32.240Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Moiz Sabuwala",
+      "phone": "9783587016",
+      "totalUnpaidOutstanding": 5037,
+      "totalPaidCredit": 3004,
+      "totalUdharCount": 29,
+      "totalSessions": 23,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-22",
+          "count": 1,
+          "amount": 630,
+          "items": [
+            {
+              "id": 318,
+              "amount": 630,
+              "notes": "Udhar",
+              "sessionId": "22092026122702_moizsabuwala",
+              "createdAt": "2026-09-22T12:57:09.083Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-26",
+          "count": 2,
+          "amount": 630,
+          "items": [
+            {
+              "id": 407,
+              "amount": 330,
+              "notes": "Udhar",
+              "sessionId": "25092026123857_moizsabuwala",
+              "createdAt": "2026-09-26T05:47:34.603Z"
+            },
+            {
+              "id": 419,
+              "amount": 300,
+              "notes": "Udhar",
+              "sessionId": "26092026154423_moizsabuwala",
+              "createdAt": "2026-09-26T10:47:39.354Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-27",
+          "count": 1,
+          "amount": 525,
+          "items": [
+            {
+              "id": 445,
+              "amount": 525,
+              "notes": "Udhar",
+              "sessionId": "27092026145130_moizsabuwala",
+              "createdAt": "2026-09-27T14:09:06.740Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-28",
+          "count": 1,
+          "amount": 500,
+          "items": [
+            {
+              "id": 452,
+              "amount": 500,
+              "notes": "Udhar",
+              "sessionId": "28092026062629_moizsabuwala",
+              "createdAt": "2026-09-28T02:21:03.804Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-30",
+          "count": 1,
+          "amount": 446,
+          "items": [
+            {
+              "id": 501,
+              "amount": 446,
+              "notes": "Udhar",
+              "sessionId": "29092026080441_moizsabuwala",
+              "createdAt": "2026-09-30T11:44:44.262Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-02",
+          "count": 1,
+          "amount": 30,
+          "items": [
+            {
+              "id": 571,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": "02102026103435_moizsabuwala",
+              "createdAt": "2026-10-02T09:36:57.434Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-05",
+          "count": 2,
+          "amount": 90,
+          "items": [
+            {
+              "id": 639,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-05T12:48:00.375Z"
+            },
+            {
+              "id": 646,
+              "amount": 60,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-05T12:58:03.466Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-07",
+          "count": 2,
+          "amount": 190,
+          "items": [
+            {
+              "id": 674,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-07T09:33:23.953Z"
+            },
+            {
+              "id": 685,
+              "amount": 160,
+              "notes": "Udhar",
+              "sessionId": "07102026163203_moizsabuwala",
+              "createdAt": "2026-10-07T12:06:17.915Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-10",
+          "count": 1,
+          "amount": 1225,
+          "items": [
+            {
+              "id": 717,
+              "amount": 1225,
+              "notes": "Udhar",
+              "sessionId": "09102026104445_moizsabuwala",
+              "createdAt": "2026-10-10T09:27:13.404Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-17",
+          "count": 1,
+          "amount": 677,
+          "items": [
+            {
+              "id": 861,
+              "amount": 677,
+              "notes": "Udhar",
+              "sessionId": "17102026124301_moizsabuwala",
+              "createdAt": "2026-10-17T12:18:21.195Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "count": 2,
+          "amount": 60,
+          "items": [
+            {
+              "id": 938,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-21T09:22:24.329Z"
+            },
+            {
+              "id": 942,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-21T10:39:15.268Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-22",
+          "count": 2,
+          "amount": 34,
+          "items": [
+            {
+              "id": 973,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-22T10:37:29.863Z"
+            },
+            {
+              "id": 974,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-22T10:37:30.226Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Sumedh",
+      "phone": "9301661947",
+      "totalUnpaidOutstanding": 3962,
+      "totalPaidCredit": 321,
+      "totalUdharCount": 14,
+      "totalSessions": 13,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-12",
+          "count": 1,
+          "amount": 2148,
+          "items": [
+            {
+              "id": 68,
+              "amount": 2148,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-09-12T06:13:55.730Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-16",
+          "count": 1,
+          "amount": 15,
+          "items": [
+            {
+              "id": 172,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": "16092026143605_sumedh",
+              "createdAt": "2026-09-16T09:06:34.468Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-20",
+          "count": 1,
+          "amount": 99,
+          "items": [
+            {
+              "id": 249,
+              "amount": 99,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-09-20T05:54:06.914Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-21",
+          "count": 1,
+          "amount": 822,
+          "items": [
+            {
+              "id": 290,
+              "amount": 822,
+              "notes": "Udhar",
+              "sessionId": "19092026145624_sumedh",
+              "createdAt": "2026-09-21T12:36:57.170Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-22",
+          "count": 1,
+          "amount": 251,
+          "items": [
+            {
+              "id": 319,
+              "amount": 251,
+              "notes": "Udhar",
+              "sessionId": "22092026101155_sumedh",
+              "createdAt": "2026-09-22T12:57:29.950Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-24",
+          "count": 1,
+          "amount": 172,
+          "items": [
+            {
+              "id": 353,
+              "amount": 172,
+              "notes": "Udhar",
+              "sessionId": "23092026090832_sumedh",
+              "createdAt": "2026-09-24T07:31:41.155Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-04",
+          "count": 1,
+          "amount": 30,
+          "items": [
+            {
+              "id": 607,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-04T06:31:09.985Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-06",
+          "count": 1,
+          "amount": 15,
+          "items": [
+            {
+              "id": 658,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-06T09:58:30.478Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-09",
+          "count": 1,
+          "amount": 280,
+          "items": [
+            {
+              "id": 706,
+              "amount": 280,
+              "notes": "Udhar",
+              "sessionId": "09102026084154_sumedh",
+              "createdAt": "2026-10-09T08:06:16.240Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-11",
+          "count": 2,
+          "amount": 130,
+          "items": [
+            {
+              "id": 741,
+              "amount": 50,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-11T06:53:41.079Z"
+            },
+            {
+              "id": 749,
+              "amount": 80,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-11T10:37:59.626Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 315,
+      "name": "dhairya billoriya",
+      "phone": "7987349991",
+      "totalUnpaidOutstanding": 1336,
+      "totalPaidCredit": 3863,
+      "totalUdharCount": 29,
+      "totalSessions": 33,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-14",
+          "count": 1,
+          "amount": 62,
+          "items": [
+            {
+              "id": 813,
+              "amount": 62,
+              "notes": "Udhar",
+              "sessionId": "14102026115706_dhairyabilloriya",
+              "createdAt": "2026-10-14T12:35:48.562Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-15",
+          "count": 1,
+          "amount": 68,
+          "items": [
+            {
+              "id": 817,
+              "amount": 68,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-15T02:46:15.628Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-16",
+          "count": 1,
+          "amount": 365,
+          "items": [
+            {
+              "id": 831,
+              "amount": 365,
+              "notes": "Udhar",
+              "sessionId": "15102026081550_dhairyabilloriya",
+              "createdAt": "2026-10-16T03:06:34.784Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-18",
+          "count": 1,
+          "amount": 178,
+          "items": [
+            {
+              "id": 890,
+              "amount": 178,
+              "notes": "Udhar",
+              "sessionId": "18102026133058_dhairyabilloriya",
+              "createdAt": "2026-10-18T11:51:05.717Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 648,
+          "items": [
+            {
+              "id": 906,
+              "amount": 648,
+              "notes": "Udhar",
+              "sessionId": "19102026120338_dhairyabilloriya",
+              "createdAt": "2026-10-19T12:31:41.568Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 15,
+          "items": [
+            {
+              "id": 951,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-21T11:29:09.639Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "name": "Priyanshi",
+      "phone": "9977268100",
+      "totalUnpaidOutstanding": 1235,
+      "totalPaidCredit": 90,
+      "totalUdharCount": 22,
+      "totalSessions": 18,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-12",
+          "count": 2,
+          "amount": 190,
+          "items": [
+            {
+              "id": 71,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-09-12T06:18:37.463Z"
+            },
+            {
+              "id": 83,
+              "amount": 160,
+              "notes": "Udhar",
+              "sessionId": "12092026090624_priyanshi",
+              "createdAt": "2026-09-12T13:32:36.689Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-14",
+          "count": 1,
+          "amount": 60,
+          "items": [
+            {
+              "id": 109,
+              "amount": 60,
+              "notes": "Udhar",
+              "sessionId": "13092026143715_priyanshi",
+              "createdAt": "2026-09-14T04:41:54.140Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-15",
+          "count": 1,
+          "amount": 15,
+          "items": [
+            {
+              "id": 144,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": "15092026154854_priyanshi",
+              "createdAt": "2026-09-15T12:59:14.207Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-17",
+          "count": 1,
+          "amount": 95,
+          "items": [
+            {
+              "id": 213,
+              "amount": 95,
+              "notes": "Udhar",
+              "sessionId": "17092026152812_priyanshi",
+              "createdAt": "2026-09-17T13:09:29.139Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-21",
+          "count": 2,
+          "amount": 165,
+          "items": [
+            {
+              "id": 257,
+              "amount": 135,
+              "notes": "Udhar",
+              "sessionId": "19092026160928_priyanshi",
+              "createdAt": "2026-09-21T05:33:30.444Z"
+            },
+            {
+              "id": 276,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": "21092026110343_priyanshi",
+              "createdAt": "2026-09-21T10:37:06.054Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-22",
+          "count": 1,
+          "amount": 125,
+          "items": [
+            {
+              "id": 317,
+              "amount": 125,
+              "notes": "Udhar",
+              "sessionId": "22092026102038_priyanshi",
+              "createdAt": "2026-09-22T12:56:53.447Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-23",
+          "count": 1,
+          "amount": 215,
+          "items": [
+            {
+              "id": 340,
+              "amount": 215,
+              "notes": "Udhar",
+              "sessionId": "23092026065734_priyanshi",
+              "createdAt": "2026-09-23T11:44:45.879Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-25",
+          "count": 1,
+          "amount": 150,
+          "items": [
+            {
+              "id": 390,
+              "amount": 150,
+              "notes": "Udhar",
+              "sessionId": "24092026115433_priyanshi",
+              "createdAt": "2026-09-25T08:09:15.896Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-03",
+          "count": 1,
+          "amount": 20,
+          "items": [
+            {
+              "id": 595,
+              "amount": 20,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-03T08:10:13.666Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-04",
+          "count": 1,
+          "amount": 20,
+          "items": [
+            {
+              "id": 605,
+              "amount": 20,
+              "notes": "Udhar",
+              "sessionId": "03102026152613_priyanshi",
+              "createdAt": "2026-10-04T05:05:28.876Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-05",
+          "count": 1,
+          "amount": 15,
+          "items": [
+            {
+              "id": 631,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-05T08:37:38.337Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-08",
+          "count": 1,
+          "amount": 15,
+          "items": [
+            {
+              "id": 690,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-08T06:15:20.038Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-11",
+          "count": 4,
+          "amount": 95,
+          "items": [
+            {
+              "id": 740,
+              "amount": 20,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-11T06:53:27.539Z"
+            },
+            {
+              "id": 742,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-11T07:49:46.033Z"
+            },
+            {
+              "id": 743,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-11T07:49:46.640Z"
+            },
+            {
+              "id": 751,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": "11102026173913_priyanshi",
+              "createdAt": "2026-10-11T12:13:54.920Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-12",
+          "count": 1,
+          "amount": 15,
+          "items": [
+            {
+              "id": 769,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": "12102026092437_priyanshi",
+              "createdAt": "2026-10-12T12:23:05.950Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-13",
+          "count": 1,
+          "amount": 40,
+          "items": [
+            {
+              "id": 792,
+              "amount": 40,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-13T12:50:05.805Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "name": "kinjal",
+      "phone": "9977498265",
+      "totalUnpaidOutstanding": 1115,
+      "totalPaidCredit": 7867,
+      "totalUdharCount": 39,
+      "totalSessions": 43,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-13",
+          "count": 1,
+          "amount": 60,
+          "items": [
+            {
+              "id": 798,
+              "amount": 60,
+              "notes": "Udhar",
+              "sessionId": "13102026123002_kinjal",
+              "createdAt": "2026-10-13T12:51:40.511Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-15",
+          "count": 1,
+          "amount": 393,
+          "items": [
+            {
+              "id": 828,
+              "amount": 393,
+              "notes": "Udhar",
+              "sessionId": "14102026143554_kinjal",
+              "createdAt": "2026-10-15T12:49:12.264Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-16",
+          "count": 1,
+          "amount": 64,
+          "items": [
+            {
+              "id": 842,
+              "amount": 64,
+              "notes": "Udhar",
+              "sessionId": "16102026121401_kinjal",
+              "createdAt": "2026-10-16T11:18:22.177Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-17",
+          "count": 1,
+          "amount": 132,
+          "items": [
+            {
+              "id": 863,
+              "amount": 132,
+              "notes": "Udhar",
+              "sessionId": "17102026072916_kinjal",
+              "createdAt": "2026-10-17T12:18:54.184Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-18",
+          "count": 1,
+          "amount": 77,
+          "items": [
+            {
+              "id": 895,
+              "amount": 77,
+              "notes": "Udhar",
+              "sessionId": "18102026150555_kinjal",
+              "createdAt": "2026-10-18T11:52:38.681Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 167,
+          "items": [
+            {
+              "id": 909,
+              "amount": 167,
+              "notes": "Udhar",
+              "sessionId": "18102026181601_kinjal",
+              "createdAt": "2026-10-19T12:32:34.303Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 222,
+          "items": [
+            {
+              "id": 948,
+              "amount": 222,
+              "notes": "Udhar",
+              "sessionId": "21102026073622_kinjal",
+              "createdAt": "2026-10-21T11:28:00.104Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 344,
+      "name": "sarthak Awasthi",
+      "phone": "9098645196",
+      "totalUnpaidOutstanding": 766,
+      "totalPaidCredit": 947,
+      "totalUdharCount": 10,
+      "totalSessions": 19,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-01",
+          "count": 1,
+          "amount": 314,
+          "items": [
+            {
+              "id": 519,
+              "amount": 314,
+              "notes": "Udhar",
+              "sessionId": "01102026075141_sarthakawasthi",
+              "createdAt": "2026-10-01T07:05:06.046Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-02",
+          "count": 1,
+          "amount": 105,
+          "items": [
+            {
+              "id": 576,
+              "amount": 105,
+              "notes": "Udhar",
+              "sessionId": "02102026082153_sarthakawasthi",
+              "createdAt": "2026-10-02T13:01:13.655Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-04",
+          "count": 1,
+          "amount": 170,
+          "items": [
+            {
+              "id": 601,
+              "amount": 170,
+              "notes": "Udhar",
+              "sessionId": "03102026092744_sarthakawasthi",
+              "createdAt": "2026-10-04T05:03:19.760Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-16",
+          "count": 1,
+          "amount": 60,
+          "items": [
+            {
+              "id": 838,
+              "amount": 60,
+              "notes": "Udhar",
+              "sessionId": "16102026114356_sarthakawasthi",
+              "createdAt": "2026-10-16T09:42:08.152Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 117,
+          "items": [
+            {
+              "id": 908,
+              "amount": 117,
+              "notes": "Udhar",
+              "sessionId": "19102026163827_sarthakawasthi",
+              "createdAt": "2026-10-19T12:32:13.809Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 95,
+      "name": "salil dubey",
+      "phone": "7067739248",
+      "totalUnpaidOutstanding": 658,
+      "totalPaidCredit": 1511,
+      "totalUdharCount": 15,
+      "totalSessions": 16,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-21",
+          "count": 1,
+          "amount": 33,
+          "items": [
+            {
+              "id": 271,
+              "amount": 33,
+              "notes": "Udhar",
+              "sessionId": "20092026144258_salildubey",
+              "createdAt": "2026-09-21T09:26:22.323Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-22",
+          "count": 2,
+          "amount": 195,
+          "items": [
+            {
+              "id": 302,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": "22092026144647_salildubey",
+              "createdAt": "2026-09-22T09:17:44.385Z"
+            },
+            {
+              "id": 310,
+              "amount": 180,
+              "notes": "Udhar",
+              "sessionId": "22092026145035_salildubey",
+              "createdAt": "2026-09-22T12:20:46.153Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-23",
+          "count": 1,
+          "amount": 200,
+          "items": [
+            {
+              "id": 328,
+              "amount": 200,
+              "notes": "Udhar",
+              "sessionId": "23092026113313_salildubey",
+              "createdAt": "2026-09-23T06:36:12.533Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-25",
+          "count": 1,
+          "amount": 230,
+          "items": [
+            {
+              "id": 391,
+              "amount": 230,
+              "notes": "Udhar",
+              "sessionId": "25092026132523_salildubey",
+              "createdAt": "2026-09-25T08:22:23.068Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 56,
+      "name": "Justin Chef",
+      "phone": "9755572898",
+      "totalUnpaidOutstanding": 585,
+      "totalPaidCredit": 567,
+      "totalUdharCount": 17,
+      "totalSessions": 16,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-20",
+          "count": 2,
+          "amount": 585,
+          "items": [
+            {
+              "id": 930,
+              "amount": 500,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-20T11:58:56.188Z"
+            },
+            {
+              "id": 934,
+              "amount": 85,
+              "notes": "Udhar",
+              "sessionId": "20102026172750_justinchef",
+              "createdAt": "2026-10-20T12:51:06.926Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "name": "Kartik Sen",
+      "phone": "6265522514",
+      "totalUnpaidOutstanding": 584,
+      "totalPaidCredit": 2055,
+      "totalUdharCount": 32,
+      "totalSessions": 20,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 34,
+          "items": [
+            {
+              "id": 913,
+              "amount": 34,
+              "notes": "Udhar",
+              "sessionId": "19102026112735_kartiksen",
+              "createdAt": "2026-10-19T12:33:31.504Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-20",
+          "count": 3,
+          "amount": 135,
+          "items": [
+            {
+              "id": 920,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-20T05:52:46.967Z"
+            },
+            {
+              "id": 921,
+              "amount": 85,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-20T05:58:51.272Z"
+            },
+            {
+              "id": 926,
+              "amount": 20,
+              "notes": "Udhar",
+              "sessionId": "20102026112941_kartiksen",
+              "createdAt": "2026-10-20T10:27:03.529Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 415,
+          "items": [
+            {
+              "id": 950,
+              "amount": 415,
+              "notes": "Udhar",
+              "sessionId": "20102026170909_kartiksen",
+              "createdAt": "2026-10-21T11:28:53.847Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "name": "Akshay Verma",
+      "phone": "9302433517",
+      "totalUnpaidOutstanding": 474,
+      "totalPaidCredit": 1556,
+      "totalUdharCount": 23,
+      "totalSessions": 47,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-18",
+          "count": 1,
+          "amount": 187,
+          "items": [
+            {
+              "id": 869,
+              "amount": 187,
+              "notes": "Udhar",
+              "sessionId": "18102026093157_akshayverma",
+              "createdAt": "2026-10-18T05:05:25.607Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 188,
+          "items": [
+            {
+              "id": 907,
+              "amount": 188,
+              "notes": "Udhar",
+              "sessionId": "19102026152952_akshayverma",
+              "createdAt": "2026-10-19T12:32:00.876Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 99,
+          "items": [
+            {
+              "id": 957,
+              "amount": 99,
+              "notes": "Udhar",
+              "sessionId": "21102026165637_akshayverma",
+              "createdAt": "2026-10-21T12:39:05.175Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 53,
+      "name": "mranali",
+      "phone": "9644937506",
+      "totalUnpaidOutstanding": 427,
+      "totalPaidCredit": 679,
+      "totalUdharCount": 30,
+      "totalSessions": 41,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-11",
+          "count": 1,
+          "amount": 45,
+          "items": [
+            {
+              "id": 759,
+              "amount": 45,
+              "notes": "Udhar",
+              "sessionId": "11102026143203_mranali",
+              "createdAt": "2026-10-11T12:42:03.323Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-12",
+          "count": 1,
+          "amount": 30,
+          "items": [
+            {
+              "id": 774,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": "12102026111123_mranali",
+              "createdAt": "2026-10-12T12:27:43.498Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-13",
+          "count": 1,
+          "amount": 15,
+          "items": [
+            {
+              "id": 802,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": "13102026153558_mranali",
+              "createdAt": "2026-10-13T12:59:24.259Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-14",
+          "count": 1,
+          "amount": 45,
+          "items": [
+            {
+              "id": 810,
+              "amount": 45,
+              "notes": "Udhar",
+              "sessionId": "14102026105548_mranali",
+              "createdAt": "2026-10-14T12:34:24.379Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-16",
+          "count": 1,
+          "amount": 68,
+          "items": [
+            {
+              "id": 845,
+              "amount": 68,
+              "notes": "Udhar",
+              "sessionId": "15102026102948_mranali",
+              "createdAt": "2026-10-16T11:36:51.943Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-17",
+          "count": 1,
+          "amount": 17,
+          "items": [
+            {
+              "id": 865,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": "17102026105526_mranali",
+              "createdAt": "2026-10-17T12:19:32.103Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-18",
+          "count": 2,
+          "amount": 34,
+          "items": [
+            {
+              "id": 871,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": "17102026183759_mranali",
+              "createdAt": "2026-10-18T06:13:07.301Z"
+            },
+            {
+              "id": 897,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": "18102026150535_mranali",
+              "createdAt": "2026-10-18T12:08:11.328Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-19",
+          "count": 2,
+          "amount": 68,
+          "items": [
+            {
+              "id": 902,
+              "amount": 34,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-19T11:48:50.831Z"
+            },
+            {
+              "id": 912,
+              "amount": 34,
+              "notes": "Udhar",
+              "sessionId": "19102026091231_mranali",
+              "createdAt": "2026-10-19T12:33:16.104Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-20",
+          "count": 2,
+          "amount": 34,
+          "items": [
+            {
+              "id": 925,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": "20102026082648_mranali",
+              "createdAt": "2026-10-20T10:22:04.554Z"
+            },
+            {
+              "id": 929,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": "20102026164254_mranali",
+              "createdAt": "2026-10-20T11:36:28.505Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 71,
+          "items": [
+            {
+              "id": 956,
+              "amount": 71,
+              "notes": "Udhar",
+              "sessionId": "21102026145735_mranali",
+              "createdAt": "2026-10-21T12:38:29.931Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Vedant Kshtriya",
+      "phone": "9691994182",
+      "totalUnpaidOutstanding": 415,
+      "totalPaidCredit": 3172,
+      "totalUdharCount": 31,
+      "totalSessions": 32,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-13",
+          "count": 1,
+          "amount": 95,
+          "items": [
+            {
+              "id": 800,
+              "amount": 95,
+              "notes": "Udhar",
+              "sessionId": "13102026143754_vedantkshtriya",
+              "createdAt": "2026-10-13T12:52:15.987Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-16",
+          "count": 1,
+          "amount": 30,
+          "items": [
+            {
+              "id": 847,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": "16102026163748_vedantkshtriya",
+              "createdAt": "2026-10-16T12:01:32.568Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-17",
+          "count": 1,
+          "amount": 243,
+          "items": [
+            {
+              "id": 864,
+              "amount": 243,
+              "notes": "Udhar",
+              "sessionId": "17102026131954_vedantkshtriya",
+              "createdAt": "2026-10-17T12:19:14.639Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-18",
+          "count": 1,
+          "amount": 17,
+          "items": [
+            {
+              "id": 893,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": "18102026152546_vedantkshtriya",
+              "createdAt": "2026-10-18T11:52:03.610Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 30,
+          "items": [
+            {
+              "id": 917,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": "19102026181820_vedantkshtriya",
+              "createdAt": "2026-10-19T12:52:33.854Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 965,
+      "name": "parv jain",
+      "phone": "8718806449",
+      "totalUnpaidOutstanding": 310,
+      "totalPaidCredit": 883,
+      "totalUdharCount": 17,
+      "totalSessions": 13,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-18",
+          "count": 3,
+          "amount": 159,
+          "items": [
+            {
+              "id": 881,
+              "amount": 50,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-18T09:19:31.231Z"
+            },
+            {
+              "id": 888,
+              "amount": 34,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-18T11:48:22.240Z"
+            },
+            {
+              "id": 894,
+              "amount": 75,
+              "notes": "Udhar",
+              "sessionId": "18102026144415_parvjain",
+              "createdAt": "2026-10-18T11:52:18.450Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 30,
+          "items": [
+            {
+              "id": 905,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": "19102026155918_parvjain",
+              "createdAt": "2026-10-19T12:31:02.065Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-20",
+          "count": 3,
+          "amount": 86,
+          "items": [
+            {
+              "id": 931,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-20T12:18:27.713Z"
+            },
+            {
+              "id": 932,
+              "amount": 10,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-20T12:46:40.052Z"
+            },
+            {
+              "id": 933,
+              "amount": 59,
+              "notes": "Udhar",
+              "sessionId": "20102026175446_parvjain",
+              "createdAt": "2026-10-20T12:50:37.564Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 35,
+          "items": [
+            {
+              "id": 944,
+              "amount": 35,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-21T10:44:47.105Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1220,
+      "name": "mohit",
+      "phone": "9009003200",
+      "totalUnpaidOutstanding": 236,
+      "totalPaidCredit": 0,
+      "totalUdharCount": 1,
+      "totalSessions": 1,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-01",
+          "count": 1,
+          "amount": 236,
+          "items": [
+            {
+              "id": 514,
+              "amount": 236,
+              "notes": "Udhar",
+              "sessionId": "01102026075718_mohit",
+              "createdAt": "2026-10-01T07:03:40.396Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 167,
+      "name": "ram kasotiya",
+      "phone": "9630252519",
+      "totalUnpaidOutstanding": 200,
+      "totalPaidCredit": 1136,
+      "totalUdharCount": 20,
+      "totalSessions": 31,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-21",
+          "count": 2,
+          "amount": 200,
+          "items": [
+            {
+              "id": 939,
+              "amount": 100,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-21T09:56:08.922Z"
+            },
+            {
+              "id": 940,
+              "amount": 100,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-21T09:56:09.482Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "name": "Dev Kushwah",
+      "phone": "7974821060",
+      "totalUnpaidOutstanding": 197,
+      "totalPaidCredit": 558,
+      "totalUdharCount": 15,
+      "totalSessions": 27,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-21",
+          "count": 2,
+          "amount": 81,
+          "items": [
+            {
+              "id": 945,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-21T11:07:22.347Z"
+            },
+            {
+              "id": 958,
+              "amount": 51,
+              "notes": "Udhar",
+              "sessionId": "21102026165933_devkushwah",
+              "createdAt": "2026-10-21T12:40:17.988Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-22",
+          "count": 3,
+          "amount": 116,
+          "items": [
+            {
+              "id": 963,
+              "amount": 28,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-22T07:56:06.498Z"
+            },
+            {
+              "id": 964,
+              "amount": 44,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-22T08:07:55.165Z"
+            },
+            {
+              "id": 965,
+              "amount": 44,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-22T08:07:55.663Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 392,
+      "name": "abhisekh panday",
+      "phone": "9516563885",
+      "totalUnpaidOutstanding": 192,
+      "totalPaidCredit": 102,
+      "totalUdharCount": 3,
+      "totalSessions": 6,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-03",
+          "count": 1,
+          "amount": 192,
+          "items": [
+            {
+              "id": 593,
+              "amount": 192,
+              "notes": "Udhar",
+              "sessionId": "03102026113443_abhisekhpanday",
+              "createdAt": "2026-10-03T07:22:29.519Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 212,
+      "name": "Dev Tiwari",
+      "phone": "8770154779",
+      "totalUnpaidOutstanding": 190,
+      "totalPaidCredit": 80,
+      "totalUdharCount": 7,
+      "totalSessions": 7,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-21",
+          "count": 1,
+          "amount": 100,
+          "items": [
+            {
+              "id": 262,
+              "amount": 100,
+              "notes": "Udhar",
+              "sessionId": "19092026141701_devtiwari",
+              "createdAt": "2026-09-21T06:58:23.740Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-22",
+          "count": 1,
+          "amount": 60,
+          "items": [
+            {
+              "id": 296,
+              "amount": 60,
+              "notes": "Udhar",
+              "sessionId": "22092026084605_devtiwari",
+              "createdAt": "2026-09-22T05:12:12.075Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-09-23",
+          "count": 1,
+          "amount": 30,
+          "items": [
+            {
+              "id": 322,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": "23092026073213_devtiwari",
+              "createdAt": "2026-09-23T02:02:56.562Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1142,
+      "name": "Raj Prajapati",
+      "phone": "8770436792",
+      "totalUnpaidOutstanding": 177,
+      "totalPaidCredit": 296,
+      "totalUdharCount": 7,
+      "totalSessions": 16,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 69,
+          "items": [
+            {
+              "id": 916,
+              "amount": 69,
+              "notes": "Udhar",
+              "sessionId": "19102026141209_rajprajapati",
+              "createdAt": "2026-10-19T12:43:08.898Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-20",
+          "count": 1,
+          "amount": 71,
+          "items": [
+            {
+              "id": 936,
+              "amount": 71,
+              "notes": "Udhar",
+              "sessionId": "20102026141818_rajprajapati",
+              "createdAt": "2026-10-20T12:52:01.356Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 37,
+          "items": [
+            {
+              "id": 946,
+              "amount": 37,
+              "notes": "Udhar",
+              "sessionId": "21102026164745_rajprajapati",
+              "createdAt": "2026-10-21T11:18:42.744Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 138,
+      "name": "vishal Parmar",
+      "phone": "8349829367",
+      "totalUnpaidOutstanding": 150,
+      "totalPaidCredit": 0,
+      "totalUdharCount": 1,
+      "totalSessions": 2,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-14",
+          "count": 1,
+          "amount": 150,
+          "items": [
+            {
+              "id": 111,
+              "amount": 150,
+              "notes": "Udhar",
+              "sessionId": "13092026114313_vishalparmar",
+              "createdAt": "2026-09-14T04:42:25.001Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1486,
+      "name": "yashil",
+      "phone": "9109448683",
+      "totalUnpaidOutstanding": 134,
+      "totalPaidCredit": 0,
+      "totalUdharCount": 2,
+      "totalSessions": 3,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-05",
+          "count": 1,
+          "amount": 104,
+          "items": [
+            {
+              "id": 648,
+              "amount": 104,
+              "notes": "Udhar",
+              "sessionId": "05102026183440_yashil",
+              "createdAt": "2026-10-05T13:05:34.387Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-07",
+          "count": 1,
+          "amount": 30,
+          "items": [
+            {
+              "id": 664,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": "06102026115747_yashil",
+              "createdAt": "2026-10-07T01:43:00.533Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "kuldeep solanki",
+      "phone": "9238779748",
+      "totalUnpaidOutstanding": 132,
+      "totalPaidCredit": 288,
+      "totalUdharCount": 5,
+      "totalSessions": 11,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-05",
+          "count": 1,
+          "amount": 132,
+          "items": [
+            {
+              "id": 649,
+              "amount": 132,
+              "notes": "Udhar",
+              "sessionId": "05102026160626_kuldeepsolanki",
+              "createdAt": "2026-10-05T13:06:20.740Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "manan",
+      "phone": "9589624390",
+      "totalUnpaidOutstanding": 122,
+      "totalPaidCredit": 403,
+      "totalUdharCount": 5,
+      "totalSessions": 24,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 62,
+          "items": [
+            {
+              "id": 959,
+              "amount": 62,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-21T12:52:05.174Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-22",
+          "count": 1,
+          "amount": 60,
+          "items": [
+            {
+              "id": 971,
+              "amount": 60,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-22T10:32:17.074Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 243,
+      "name": "jack sharma",
+      "phone": "990758760",
+      "totalUnpaidOutstanding": 120,
+      "totalPaidCredit": 0,
+      "totalUdharCount": 1,
+      "totalSessions": 1,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-14",
+          "count": 1,
+          "amount": 120,
+          "items": [
+            {
+              "id": 114,
+              "amount": 120,
+              "notes": "Udhar",
+              "sessionId": "13092026143256_jacksharma",
+              "createdAt": "2026-09-14T09:16:34.394Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 173,
+      "name": "anshul valunshkar",
+      "phone": "7400913816",
+      "totalUnpaidOutstanding": 112,
+      "totalPaidCredit": 437,
+      "totalUdharCount": 12,
+      "totalSessions": 27,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 112,
+          "items": [
+            {
+              "id": 954,
+              "amount": 112,
+              "notes": "Udhar",
+              "sessionId": "21102026150147_anshulvalunshkar",
+              "createdAt": "2026-10-21T12:37:44.632Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 200,
+      "name": "sahil raghuwanshi",
+      "phone": "6261346186",
+      "totalUnpaidOutstanding": 106,
+      "totalPaidCredit": 0,
+      "totalUdharCount": 2,
+      "totalSessions": 2,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-12",
+          "count": 1,
+          "amount": 18,
+          "items": [
+            {
+              "id": 90,
+              "amount": 18,
+              "notes": "Udhar",
+              "sessionId": "12092026180110_sahilraghuwanshi",
+              "createdAt": "2026-09-12T13:38:42.439Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-12",
+          "count": 1,
+          "amount": 88,
+          "items": [
+            {
+              "id": 763,
+              "amount": 88,
+              "notes": "Udhar",
+              "sessionId": "12102026100552_sahilraghuwanshi",
+              "createdAt": "2026-10-12T05:35:10.195Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 235,
+      "name": "kamar chouhan",
+      "phone": "9522777789",
+      "totalUnpaidOutstanding": 105,
+      "totalPaidCredit": 0,
+      "totalUdharCount": 2,
+      "totalSessions": 2,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-14",
+          "count": 1,
+          "amount": 11,
+          "items": [
+            {
+              "id": 115,
+              "amount": 11,
+              "notes": "Udhar",
+              "sessionId": "13092026133843_kamarchouhan",
+              "createdAt": "2026-09-14T09:17:43.099Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-18",
+          "count": 1,
+          "amount": 94,
+          "items": [
+            {
+              "id": 877,
+              "amount": 94,
+              "notes": "Udhar",
+              "sessionId": "18102026120155_kamarchouhan",
+              "createdAt": "2026-10-18T07:35:42.890Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "name": "Prakhar Shrivastav",
+      "phone": "7067120541",
+      "totalUnpaidOutstanding": 102,
+      "totalPaidCredit": 1836,
+      "totalUdharCount": 22,
+      "totalSessions": 29,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 102,
+          "items": [
+            {
+              "id": 953,
+              "amount": 102,
+              "notes": "Udhar",
+              "sessionId": "21102026151247_prakharshrivastav",
+              "createdAt": "2026-10-21T12:37:33.213Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 553,
+      "name": "Samarth Awasthi",
+      "phone": "7354661155",
+      "totalUnpaidOutstanding": 101,
+      "totalPaidCredit": 2174,
+      "totalUdharCount": 17,
+      "totalSessions": 21,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 101,
+          "items": [
+            {
+              "id": 903,
+              "amount": 101,
+              "notes": "Udhar",
+              "sessionId": "19102026170134_samarthawasthi",
+              "createdAt": "2026-10-19T12:30:24.888Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "name": "Aditya Sharma Singer",
+      "phone": "6260020567",
+      "totalUnpaidOutstanding": 95,
+      "totalPaidCredit": 1758,
+      "totalUdharCount": 24,
+      "totalSessions": 39,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-02",
+          "count": 1,
+          "amount": 89,
+          "items": [
+            {
+              "id": 575,
+              "amount": 89,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-02T11:31:39.765Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 6,
+          "items": [
+            {
+              "id": 941,
+              "amount": 6,
+              "notes": "Udhar",
+              "sessionId": "21102026152125_adityasharmasinger",
+              "createdAt": "2026-10-21T10:04:19.763Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 156,
+      "name": "kishan varma",
+      "phone": "975508629",
+      "totalUnpaidOutstanding": 94,
+      "totalPaidCredit": 1421,
+      "totalUdharCount": 5,
+      "totalSessions": 13,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 94,
+          "items": [
+            {
+              "id": 952,
+              "amount": 94,
+              "notes": "Udhar",
+              "sessionId": "21102026115541_kishanvarma",
+              "createdAt": "2026-10-21T12:33:47.538Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 383,
+      "name": "visshu kasera",
+      "phone": "9617101829",
+      "totalUnpaidOutstanding": 87,
+      "totalPaidCredit": 476,
+      "totalUdharCount": 19,
+      "totalSessions": 34,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-14",
+          "count": 1,
+          "amount": 50,
+          "items": [
+            {
+              "id": 814,
+              "amount": 50,
+              "notes": "Udhar",
+              "sessionId": "14102026132757_visshukasera",
+              "createdAt": "2026-10-14T12:36:57.666Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-22",
+          "count": 1,
+          "amount": 37,
+          "items": [
+            {
+              "id": 968,
+              "amount": 37,
+              "notes": "Udhar",
+              "sessionId": "22102026122848_visshukasera",
+              "createdAt": "2026-10-22T09:09:48.617Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 755,
+      "name": "Ajinkya",
+      "phone": "8358867955",
+      "totalUnpaidOutstanding": 77,
+      "totalPaidCredit": 2026,
+      "totalUdharCount": 16,
+      "totalSessions": 28,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-19",
+          "count": 1,
+          "amount": 77,
+          "items": [
+            {
+              "id": 904,
+              "amount": 77,
+              "notes": "Udhar",
+              "sessionId": "19102026140147_ajinkya",
+              "createdAt": "2026-10-19T12:30:38.470Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "name": "Raj Chouhan",
+      "phone": "9977567391",
+      "totalUnpaidOutstanding": 61,
+      "totalPaidCredit": 1908,
+      "totalUdharCount": 23,
+      "totalSessions": 65,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-22",
+          "count": 1,
+          "amount": 61,
+          "items": [
+            {
+              "id": 972,
+              "amount": 61,
+              "notes": "Udhar",
+              "sessionId": "22102026091402_rajchouhan",
+              "createdAt": "2026-10-22T10:36:17.822Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 819,
+      "name": "pahal",
+      "phone": "8871120408",
+      "totalUnpaidOutstanding": 57,
+      "totalPaidCredit": 0,
+      "totalUdharCount": 1,
+      "totalSessions": 1,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-24",
+          "count": 1,
+          "amount": 57,
+          "items": [
+            {
+              "id": 357,
+              "amount": 57,
+              "notes": "Udhar",
+              "sessionId": "23092026171025_pahal",
+              "createdAt": "2026-09-24T07:33:34.280Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 657,
+      "name": "rahul bansacl",
+      "phone": "9977066954",
+      "totalUnpaidOutstanding": 54,
+      "totalPaidCredit": 0,
+      "totalUdharCount": 1,
+      "totalSessions": 2,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-20",
+          "count": 1,
+          "amount": 54,
+          "items": [
+            {
+              "id": 253,
+              "amount": 54,
+              "notes": "Udhar",
+              "sessionId": "20092026164728_rahulbansacl",
+              "createdAt": "2026-09-20T12:43:51.382Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 70,
+      "name": "eklavya soni",
+      "phone": "8827888471",
+      "totalUnpaidOutstanding": 45,
+      "totalPaidCredit": 345,
+      "totalUdharCount": 17,
+      "totalSessions": 30,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-11",
+          "count": 1,
+          "amount": 30,
+          "items": [
+            {
+              "id": 745,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": "11102026112330_eklavyasoni",
+              "createdAt": "2026-10-11T08:58:54.760Z"
+            }
+          ]
+        },
+        {
+          "date": "2026-10-14",
+          "count": 1,
+          "amount": 15,
+          "items": [
+            {
+              "id": 805,
+              "amount": 15,
+              "notes": "Udhar",
+              "sessionId": "14102026103204_eklavyasoni",
+              "createdAt": "2026-10-14T05:48:35.018Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 241,
+      "name": "Akshat Jha",
+      "phone": "9893278389",
+      "totalUnpaidOutstanding": 45,
+      "totalPaidCredit": 250,
+      "totalUdharCount": 4,
+      "totalSessions": 10,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-02",
+          "count": 1,
+          "amount": 45,
+          "items": [
+            {
+              "id": 568,
+              "amount": 45,
+              "notes": "Udhar",
+              "sessionId": "02102026130245_akshatjha",
+              "createdAt": "2026-10-02T07:58:25.010Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 815,
+      "name": "Tushar thakur",
+      "phone": "7909586316",
+      "totalUnpaidOutstanding": 37,
+      "totalPaidCredit": 23,
+      "totalUdharCount": 2,
+      "totalSessions": 12,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-15",
+          "count": 1,
+          "amount": 37,
+          "items": [
+            {
+              "id": 825,
+              "amount": 37,
+              "notes": "Udhar",
+              "sessionId": "15102026153239_tusharthakur",
+              "createdAt": "2026-10-15T11:39:50.226Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 44,
+      "name": "bunny",
+      "phone": "8966803564",
+      "totalUnpaidOutstanding": 34,
+      "totalPaidCredit": 445,
+      "totalUdharCount": 19,
+      "totalSessions": 48,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-22",
+          "count": 2,
+          "amount": 34,
+          "items": [
+            {
+              "id": 961,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": "22102026124038_bunny",
+              "createdAt": "2026-10-22T07:13:24.454Z"
+            },
+            {
+              "id": 962,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": null,
+              "createdAt": "2026-10-22T07:18:02.863Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "name": "Vaibhav Lovanshi",
+      "phone": "9575688290",
+      "totalUnpaidOutstanding": 30,
+      "totalPaidCredit": 206,
+      "totalUdharCount": 4,
+      "totalSessions": 21,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-22",
+          "count": 1,
+          "amount": 30,
+          "items": [
+            {
+              "id": 966,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": "22102026120608_vaibhavlovanshi",
+              "createdAt": "2026-10-22T08:12:58.964Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 47,
+      "name": "krishna sen",
+      "phone": "9752050818",
+      "totalUnpaidOutstanding": 30,
+      "totalPaidCredit": 0,
+      "totalUdharCount": 1,
+      "totalSessions": 1,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-10",
+          "count": 1,
+          "amount": 30,
+          "items": [
+            {
+              "id": 5,
+              "amount": 30,
+              "notes": "Udhar",
+              "sessionId": "09092026145419_krishnasen",
+              "createdAt": "2026-09-10T10:09:26.271Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 155,
+      "name": "honey gehlot",
+      "phone": "8871748819",
+      "totalUnpaidOutstanding": 28,
+      "totalPaidCredit": 138,
+      "totalUdharCount": 7,
+      "totalSessions": 23,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-17",
+          "count": 1,
+          "amount": 28,
+          "items": [
+            {
+              "id": 855,
+              "amount": 28,
+              "notes": "Udhar",
+              "sessionId": "17102026142448_honeygehlot",
+              "createdAt": "2026-10-17T09:37:49.089Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 108,
+      "name": "honey thakur",
+      "phone": "8435292836",
+      "totalUnpaidOutstanding": 27,
+      "totalPaidCredit": 489,
+      "totalUdharCount": 5,
+      "totalSessions": 16,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-28",
+          "count": 1,
+          "amount": 27,
+          "items": [
+            {
+              "id": 454,
+              "amount": 27,
+              "notes": "Udhar",
+              "sessionId": "27092026180931_honeythakur",
+              "createdAt": "2026-09-28T02:37:17.525Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 441,
+      "name": "Cheeku Kushwah",
+      "phone": "9131533126",
+      "totalUnpaidOutstanding": 17,
+      "totalPaidCredit": 49,
+      "totalUdharCount": 4,
+      "totalSessions": 7,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-18",
+          "count": 1,
+          "amount": 17,
+          "items": [
+            {
+              "id": 896,
+              "amount": 17,
+              "notes": "Udhar",
+              "sessionId": "18102026164119_cheekukushwah",
+              "createdAt": "2026-10-18T12:07:44.769Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Yash pathak",
+      "phone": "9109894904",
+      "totalUnpaidOutstanding": 7,
+      "totalPaidCredit": 421,
+      "totalUdharCount": 15,
+      "totalSessions": 20,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-14",
+          "count": 1,
+          "amount": 7,
+          "items": [
+            {
+              "id": 808,
+              "amount": 7,
+              "notes": "Udhar",
+              "sessionId": "14102026154512_yashpathak",
+              "createdAt": "2026-10-14T11:01:12.077Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "name": "sonu",
+      "phone": "9826234644",
+      "totalUnpaidOutstanding": 5,
+      "totalPaidCredit": 60,
+      "totalUdharCount": 2,
+      "totalSessions": 3,
+      "dateWiseDebts": [
+        {
+          "date": "2026-09-11",
+          "count": 1,
+          "amount": 5,
+          "items": [
+            {
+              "id": 42,
+              "amount": 5,
+              "notes": "Udhar",
+              "sessionId": "11092026155806_sonu",
+              "createdAt": "2026-09-11T10:56:12.900Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 719,
+      "name": "chunnugoli",
+      "phone": "9993442205",
+      "totalUnpaidOutstanding": 5,
+      "totalPaidCredit": 0,
+      "totalUdharCount": 1,
+      "totalSessions": 3,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-01",
+          "count": 1,
+          "amount": 5,
+          "items": [
+            {
+              "id": 523,
+              "amount": 5,
+              "notes": "Udhar",
+              "sessionId": "01102026130324_chunnugoli",
+              "createdAt": "2026-10-01T08:07:59.190Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Arpit Mahor",
+      "phone": "8770409447",
+      "totalUnpaidOutstanding": 4,
+      "totalPaidCredit": 609,
+      "totalUdharCount": 8,
+      "totalSessions": 16,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-18",
+          "count": 1,
+          "amount": 4,
+          "items": [
+            {
+              "id": 887,
+              "amount": 4,
+              "notes": "Udhar",
+              "sessionId": "18102026160059_arpitmahor",
+              "createdAt": "2026-10-18T11:05:52.585Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "name": "Jaivardhan Gohar",
+      "phone": "7970101000",
+      "totalUnpaidOutstanding": 2,
+      "totalPaidCredit": 810,
+      "totalUdharCount": 13,
+      "totalSessions": 32,
+      "dateWiseDebts": [
+        {
+          "date": "2026-10-21",
+          "count": 1,
+          "amount": 2,
+          "items": [
+            {
+              "id": 943,
+              "amount": 2,
+              "notes": "Udhar",
+              "sessionId": "21102026143704_jaivardhangohar",
+              "createdAt": "2026-10-21T10:40:55.543Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

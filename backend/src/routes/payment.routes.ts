@@ -119,36 +119,67 @@ router.post('/', authenticateToken, async (req, res) => {
             where: { id: cr.id },
             data: { status: 'paid', settledAmount: cr.amount }
           });
+          if (cr.visitId) {
+            const vRemaining = await prisma.creditRecord.findMany({
+              where: { visitId: cr.visitId, status: 'unpaid' }
+            });
+            const vDue = vRemaining.reduce((sum, r) => sum + (r.amount - r.settledAmount), 0);
+            await prisma.visit.update({
+              where: { id: cr.visitId },
+              data: {
+                balanceDue: vDue,
+                paymentStatus: vDue === 0 ? 'paid' : 'partially_paid'
+              }
+            });
+          }
         } else {
           await prisma.creditRecord.update({
             where: { id: cr.id },
             data: { settledAmount: cr.settledAmount + remainingToSettle }
           });
+          if (cr.visitId) {
+            const vRemaining = await prisma.creditRecord.findMany({
+              where: { visitId: cr.visitId, status: 'unpaid' }
+            });
+            const vDue = vRemaining.reduce((sum, r) => sum + (r.amount - r.settledAmount), 0);
+            await prisma.visit.update({
+              where: { id: cr.visitId },
+              data: {
+                balanceDue: Math.max(0, vDue),
+                paymentStatus: 'partially_paid'
+              }
+            });
+          }
           remainingToSettle = 0;
         }
       }
     }
 
-    // Recompute customer aggregates
-    const customerStats = await prisma.$queryRaw<any[]>`
-      SELECT
-        COALESCE(SUM(cr.amount - cr."settledAmount"), 0) as current_credit_due,
-        COALESCE((SELECT SUM("visitTotal") FROM "Visit" WHERE "customerId" = ${customerId}), 0) as lifetime_spend,
-        COALESCE((SELECT SUM(amount) FROM "Payment" WHERE "customerId" = ${customerId}), 0) as lifetime_paid
-      FROM "CreditRecord" cr
-      WHERE cr."customerId" = ${customerId} AND cr.status = 'unpaid'
-    `;
+    // Recompute customer aggregates cleanly
+    const remainingCredits = await prisma.creditRecord.findMany({
+      where: { customerId, status: 'unpaid' }
+    });
+    const currentCreditDue = remainingCredits.reduce((sum, c) => sum + (c.amount - c.settledAmount), 0);
 
-    if (customerStats && customerStats.length > 0) {
-      await prisma.customer.update({
-        where: { id: customerId },
-        data: {
-          currentCreditDue: Number(customerStats[0].current_credit_due) || 0,
-          lifetimeSpend: Number(customerStats[0].lifetime_spend) || 0,
-          lifetimePaid: Number(customerStats[0].lifetime_paid) || 0
-        }
-      });
-    }
+    const [visitAgg, paymentAgg] = await Promise.all([
+      prisma.visit.aggregate({
+        where: { customerId },
+        _sum: { visitTotal: true }
+      }),
+      prisma.payment.aggregate({
+        where: { customerId },
+        _sum: { amount: true }
+      })
+    ]);
+
+    await prisma.customer.update({
+      where: { id: customerId },
+      data: {
+        currentCreditDue,
+        lifetimeSpend: visitAgg._sum.visitTotal || 0,
+        lifetimePaid: paymentAgg._sum.amount || 0
+      }
+    });
 
     broadcast({ type: 'PAYMENT_RECORD', payment, visitId });
     res.status(201).json(payment);

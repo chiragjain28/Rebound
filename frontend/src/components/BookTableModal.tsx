@@ -1,14 +1,23 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Table } from '../types';
 import { api } from '../lib/api';
-import { X, Calendar } from 'lucide-react';
+import { X, Calendar, User, Phone, CheckCircle2 } from 'lucide-react';
 
 interface BookTableModalProps {
   tables: Table[];
   onClose: () => void;
   onSuccess: (booking: any) => void;
+}
+
+interface CustomerMatch {
+  id: number;
+  name: string;
+  firstName: string;
+  lastName?: string;
+  phone: string;
+  totalVisits?: number;
 }
 
 export const BookTableModal: React.FC<BookTableModalProps> = ({
@@ -23,45 +32,87 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
   const [bookingTime, setBookingTime] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [customerList, setCustomerList] = useState<string[]>([]);
+
+  // Live customer search states
+  const [suggestions, setSuggestions] = useState<CustomerMatch[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerMatch | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const CUSTOMER_CACHE_KEY = 'rebound_customer_names_cache';
-  const CUSTOMER_CACHE_TTL = 30 * 60 * 1000;
-
+  // Live search when typing name or phone
   useEffect(() => {
-    const fetchCustomers = async () => {
+    const query = customerName.trim();
+    if (query.length < 2) {
+      setSuggestions([]);
+      if (!selectedCustomer) {
+        // clear selected if user erased
+      }
+      return;
+    }
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    searchTimeoutRef.current = setTimeout(async () => {
       try {
-        const cached = localStorage.getItem(CUSTOMER_CACHE_KEY);
-        if (cached) {
-          const { names, timestamp } = JSON.parse(cached);
-          if (Date.now() - timestamp < CUSTOMER_CACHE_TTL && Array.isArray(names)) {
-            setCustomerList(names);
-            return;
+        const results = await api.get(`/customers/search?q=${encodeURIComponent(query)}`);
+        if (Array.isArray(results)) {
+          setSuggestions(results);
+          // Auto-match if exact match found
+          const exact = results.find(
+            c => c.name.toLowerCase() === query.toLowerCase() ||
+                 c.firstName.toLowerCase() === query.toLowerCase() ||
+                 (contactNumber && c.phone === contactNumber.trim())
+          );
+          if (exact && !selectedCustomer) {
+            setSelectedCustomer(exact);
+            if (!contactNumber && exact.phone) {
+              setContactNumber(exact.phone);
+            }
           }
         }
-      } catch (e) { /* ignore corrupt cache */ }
-
-      try {
-        const names = await api.get('/sessions/customers/all');
-        if (Array.isArray(names)) {
-          setCustomerList(names);
-          localStorage.setItem(CUSTOMER_CACHE_KEY, JSON.stringify({ names, timestamp: Date.now() }));
-        }
       } catch (err) {
-        console.error('Failed to fetch customer list', err);
+        console.error('Customer lookup failed:', err);
       }
-    };
-    fetchCustomers();
-  }, []);
+    }, 200);
 
-  const trimmedInput = customerName.trim();
-  const matchedSuggestions = trimmedInput.length >= 1
-    ? customerList.filter(name => name.toLowerCase().includes(trimmedInput.toLowerCase()) && name.toLowerCase() !== trimmedInput.toLowerCase())
-    : [];
-  const isExactMatch = customerList.some(name => name.toLowerCase() === trimmedInput.toLowerCase());
-  const hasPartialMatches = customerList.some(name => name.toLowerCase().includes(trimmedInput.toLowerCase()) && name.toLowerCase() !== trimmedInput.toLowerCase());
-  const isNew = trimmedInput.length > 0 && !isExactMatch && !hasPartialMatches;
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [customerName]);
+
+  // Also check if contactNumber matches an existing customer
+  useEffect(() => {
+    const cleanPhone = contactNumber.trim().replace(/\D/g, '');
+    if (cleanPhone.length >= 10 && !selectedCustomer) {
+      api.get(`/customers/search?q=${encodeURIComponent(cleanPhone)}`)
+        .then(results => {
+          if (Array.isArray(results) && results.length > 0) {
+            const matched = results.find(c => c.phone.includes(cleanPhone));
+            if (matched) {
+              setSelectedCustomer(matched);
+              if (!customerName) {
+                setCustomerName(matched.name);
+              }
+            }
+          }
+        })
+        .catch(() => {});
+    }
+  }, [contactNumber]);
+
+  const handleSelectSuggestion = (c: CustomerMatch) => {
+    setCustomerName(c.name);
+    setContactNumber(c.phone);
+    setSelectedCustomer(c);
+    setShowSuggestions(false);
+  };
+
+  const isExisting = Boolean(selectedCustomer) || suggestions.some(
+    c => c.name.toLowerCase() === customerName.trim().toLowerCase() ||
+         (contactNumber && c.phone === contactNumber.trim())
+  );
+
+  const isNew = customerName.trim().length >= 2 && !isExisting;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,43 +196,65 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
               <option value="">-- Choose a table --</option>
               {tables.filter(t => t.gameType === gameType).map((t) => (
                 <option key={t.id} value={t.id.toString()}>
-                  Table {t.number}
+                  {t.name || (t.gameType === 'PS4' ? `Station ${t.number}` : `Table ${t.number}`)}
                 </option>
               ))}
             </select>
           </div>
 
           <div className="relative">
-            <label className="flex justify-between items-center text-xs font-bold text-slate-700 mb-1">
-              <span>Customer Name</span>
-              {isNew && <span className="text-[10px] font-bold text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-mono">New Customer</span>}
-            </label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="text-xs font-bold text-slate-700">
+                Customer Name
+              </label>
+              {isExisting ? (
+                <span className="text-[10px] font-bold text-blue-700 uppercase bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 font-mono flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-blue-600" />
+                  Existing Regular
+                </span>
+              ) : isNew ? (
+                <span className="text-[10px] font-bold text-emerald-700 uppercase bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-mono">
+                  New Customer
+                </span>
+              ) : null}
+            </div>
+
             <input
               type="text"
               required
               value={customerName}
               onChange={(e) => {
                 setCustomerName(e.target.value);
+                setSelectedCustomer(null);
                 setShowSuggestions(true);
               }}
               onFocus={() => setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
               className="block w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-semibold"
-              placeholder="e.g. Tony Stark"
+              placeholder="e.g. Chirag Jain"
             />
-            {showSuggestions && matchedSuggestions.length > 0 && (
+
+            {/* Suggestions dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
               <ul className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100">
-                {matchedSuggestions.map(name => (
+                {suggestions.map(c => (
                   <li 
-                    key={name}
-                    className="px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 cursor-pointer font-medium"
+                    key={c.id}
+                    className="px-4 py-2.5 text-xs text-slate-800 hover:bg-slate-50 cursor-pointer font-medium flex items-center justify-between"
                     onMouseDown={(e) => {
                       e.preventDefault();
-                      setCustomerName(name);
-                      setShowSuggestions(false);
+                      handleSelectSuggestion(c);
                     }}
                   >
-                    {name}
+                    <div className="flex items-center gap-2">
+                      <User className="w-3.5 h-3.5 text-slate-400" />
+                      <span className="font-bold text-slate-900">{c.name}</span>
+                    </div>
+                    {c.phone && (
+                      <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
+                        <Phone className="w-3 h-3 text-slate-400" />
+                        {c.phone}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -195,8 +268,11 @@ export const BookTableModal: React.FC<BookTableModalProps> = ({
             <input
               type="tel"
               value={contactNumber}
-              onChange={(e) => setContactNumber(e.target.value)}
-              placeholder="e.g. 9876543210"
+              onChange={(e) => {
+                setContactNumber(e.target.value);
+                setSelectedCustomer(null);
+              }}
+              placeholder="e.g. 7828872160"
               className="block w-full rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2 text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 text-xs font-mono font-semibold"
             />
           </div>

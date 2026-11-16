@@ -21,7 +21,9 @@ model Staff {
 model Table {
   id         Int            @id @default(autoincrement())
   number     Int
-  gameType   String         @default("Pool") // Pool, MidSnooker
+  name        String?        // Custom table name/label (e.g. "VIP 1", "Corner Table")
+  gameType    String         @default("Pool") // Pool, MidSnooker
+  ratePerHour Float?         // Custom hourly price/rate in ₹ (e.g. 160, 220, 250)
   status     String         @default("available") // available, occupied
   bookings   TableBooking[]
   tablePlays TablePlay[]
@@ -30,11 +32,13 @@ model Table {
 }
 
 model MenuItem {
-  id       Int     @id @default(autoincrement())
-  name     String
-  price    Float
-  category String  // Cafe, Cold Drinks, Cigarettes
-  orders   Order[]
+  id            Int            @id @default(autoincrement())
+  name          String
+  price         Float
+  category      String         // Cafe, Cold Drinks, Cigarettes
+  isActive      Boolean        @default(true) // Active item in current menu; false if soft-deleted
+  orders        Order[]
+  inventoryItem InventoryItem?
 }
 
 model Customer {
@@ -53,6 +57,7 @@ model Customer {
   visits           Visit[]
   payments         Payment[]
   creditRecords    CreditRecord[]
+  legacySessions   LegacySession[]
 
   @@index([phone])
   @@index([name])
@@ -92,7 +97,7 @@ model TablePlay {
   visitId     String
   visit       Visit     @relation(fields: [visitId], references: [id], onDelete: Cascade)
   tableId     Int?      // null for PS4
-  table       Table?    @relation(fields: [tableId], references: [id])
+  table       Table?    @relation(fields: [tableId], references: [id], onDelete: SetNull)
   gameType    String    // Pool, MidSnooker, PS4
   playerCount Int       @default(1)
   startTime   DateTime  @default(now())
@@ -160,4 +165,81 @@ model TableBooking {
   createdAt     DateTime @default(now())
 
   @@index([tableId])
+}
+
+model LegacySession {
+  id              String    @id // Original production session ID (e.g. "27102026005118_harshit")
+  customerId      Int
+  customer        Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerName    String
+  customerPhone   String?
+  
+  // Timing & Staff Info
+  startTime       DateTime
+  endTime         DateTime?
+  status          String    // "completed" | "active"
+  staffUsername   String?
+  
+  // Financial Summary
+  tablesTotal     Float     @default(0) // gameCost
+  itemsTotal      Float     @default(0) // menuCost
+  customAmount    Float     @default(0)
+  totalBill       Float     @default(0)
+  paidAmount      Float     @default(0)
+  balanceDue      Float     @default(0)
+  paymentStatus   String    // "paid" | "partially_paid" | "credit"
+  
+  // Itemized Historical Details as JSON
+  orders          Json?
+  tablePlays      Json?
+  payments        Json?
+  
+  createdAt       DateTime  @default(now())
+
+  @@index([customerId])
+  @@index([startTime])
+}
+
+model InventoryItem {
+  id            Int                    @id @default(autoincrement())
+  name          String
+  category      String                 // "Cafe" | "Club" (User requirement!)
+  subCategory   String?                // "Cigarettes", "Cold Drinks", "Snacks", "Raw Materials", "Gaming Supplies"
+  currentStock  Int                    @default(0) // In loose pieces / basic units
+  unit          String                 @default("pieces") // "pieces", "cans", "bottles", "packets", "boxes"
+  piecesPerBox  Int                    @default(1) // Number of loose pieces in 1 wholesale box/packet
+  minStockAlert Int                    @default(10) // Low stock threshold (in pieces)
+  costPrice     Float?                 // Purchase cost per box or per piece
+  sellingPrice  Float?                 // Retail selling price per piece
+  menuItemId    Int?                   @unique
+  menuItem      MenuItem?              @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  isActive      Boolean                @default(true)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  transactions  InventoryTransaction[]
+
+  @@index([category])
+  @@index([subCategory])
+  @@index([isActive])
+}
+
+model InventoryTransaction {
+  id            Int           @id @default(autoincrement())
+  itemId        Int
+  item          InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  type          String        // "RESTOCK" | "SALE" | "ADJUSTMENT" | "WASTAGE" | "RETURN"
+  quantity      Int           // Loose units change (e.g. +50, -2)
+  boxesCount    Float?        // If restocked by boxes (e.g. 5 boxes)
+  piecesPerBox  Int?          // E.g. 10 or 20
+  unitCost      Float?        // Cost per box/pack or piece
+  totalCost     Float?        // Total restock expense
+  stockBefore   Int
+  stockAfter    Int
+  notes         String?
+  staffUsername String?
+  createdAt     DateTime      @default(now())
+
+  @@index([itemId])
+  @@index([type])
+  @@index([createdAt])
 }

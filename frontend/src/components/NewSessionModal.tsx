@@ -54,12 +54,17 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
       } catch (e) { /* ignore corrupt cache */ }
 
       try {
-        const raw = await api.get('/sessions/customers/all');
+        let raw;
+        try {
+          raw = await api.get('/customers/all');
+        } catch {
+          raw = await api.get('/sessions/customers/all');
+        }
         if (Array.isArray(raw)) {
           const profiles: CustomerProfile[] = raw.map(item => 
             typeof item === 'string' 
               ? { customerName: item, customerPhone: '' } 
-              : { customerName: item.customerName || '', customerPhone: item.customerPhone || '' }
+              : { customerName: item.customerName || item.name || '', customerPhone: item.customerPhone || item.phone || '' }
           );
           setCustomerList(profiles);
           localStorage.setItem(CUSTOMER_CACHE_KEY, JSON.stringify({ profiles, timestamp: Date.now() }));
@@ -371,7 +376,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
 
                 {matchingUdhar && (
                   <div className="text-xs text-amber-800 bg-amber-50 py-2 px-3 rounded-xl border border-amber-200 leading-tight font-medium flex items-center gap-2">
-                    <span className="shrink-0">⚠️</span>
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                     <span>
                       <b>{matchingUdhar.customerName}</b> has an outstanding debt of <b>₹{matchingUdhar.totalOutstanding.toFixed(2)}</b>.
                     </span>

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Session } from '../types';
 import { api } from '../lib/api';
-import { X, CheckSquare, AlertTriangle } from 'lucide-react';
+import { X, CheckSquare, AlertTriangle, Banknote } from 'lucide-react';
 
 const GAME_RATES: Record<string, number> = {
   'Pool': 160,
@@ -238,8 +238,9 @@ export const CloseSessionModal: React.FC<CloseSessionModalProps> = ({
           {refundAmount > 0 && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs p-3 rounded-xl shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="font-bold flex items-center gap-1">
-                  <span>💰</span> Return Change to Customer:
+                <span className="font-bold flex items-center gap-1.5">
+                  <Banknote className="w-4 h-4 text-emerald-700 shrink-0" />
+                  <span>Return Change to Customer:</span>
                 </span>
                 <span className="text-base font-extrabold font-mono text-emerald-800">
                   ₹{refundAmount.toFixed(2)}

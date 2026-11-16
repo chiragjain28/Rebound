@@ -87,7 +87,7 @@ export const SwitchTableModal: React.FC<SwitchTableModalProps> = ({ session, onC
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
             <span className="text-slate-500 font-medium">Currently playing on:</span>
             <span className="font-bold text-slate-800">
-              {session.table ? `${session.table.gameType} Table ${session.table.number}` : (session.gameType || 'Table')}
+              {session.table ? (session.table.name || `${session.table.gameType} Table ${session.table.number}`) : (session.gameType || 'Table')}
             </span>
           </div>
 
@@ -127,7 +127,7 @@ export const SwitchTableModal: React.FC<SwitchTableModalProps> = ({ session, onC
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{t.gameType}</span>
                       {selectedTableId === t.id && <Check className="w-3.5 h-3.5 text-blue-600" />}
                     </div>
-                    <p className="font-bold text-sm mt-0.5">Table {t.number}</p>
+                    <p className="font-bold text-sm mt-0.5">{t.name || (t.gameType === 'PS4' ? `Station ${t.number}` : `Table ${t.number}`)}</p>
                     <p className="text-[11px] text-slate-500 mt-1">₹{t.ratePerHour}/hr</p>
                   </button>
                 ))}
