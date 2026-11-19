@@ -84,7 +84,7 @@ export default function UdharLedgerPage() {
       await api.post(`/udhar/${id}/settle`, {});
       fetchUdhars();
     } catch (err: any) {
-      alert(err.message || 'Failed to settle udhar');
+      alert(err.message || 'Failed to settle account');
     }
   };
 
@@ -223,7 +223,7 @@ export default function UdharLedgerPage() {
           </div>
 
           <div className="shrink-0 text-xs font-mono font-bold text-slate-500">
-            {searchQuery ? `Found ${totalDebtors} matching debtors` : `Total ${totalDebtors} debtor accounts`}
+            {searchQuery ? `Found ${totalDebtors} matching accounts` : `Total ${totalDebtors} open credit accounts`}
           </div>
         </div>
 
@@ -244,7 +244,7 @@ export default function UdharLedgerPage() {
           </div>
         ) : groupedUdharsList.length === 0 ? (
           <div className="text-center py-24 bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
-            No debtors found {searchQuery && `matching "${searchQuery}"`}.
+            No open credit accounts found {searchQuery && `matching "${searchQuery}"`}.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

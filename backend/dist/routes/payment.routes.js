@@ -113,35 +113,65 @@ router.post('/', auth_1.authenticateToken, async (req, res) => {
                         where: { id: cr.id },
                         data: { status: 'paid', settledAmount: cr.amount }
                     });
+                    if (cr.visitId) {
+                        const vRemaining = await index_1.prisma.creditRecord.findMany({
+                            where: { visitId: cr.visitId, status: 'unpaid' }
+                        });
+                        const vDue = vRemaining.reduce((sum, r) => sum + (r.amount - r.settledAmount), 0);
+                        await index_1.prisma.visit.update({
+                            where: { id: cr.visitId },
+                            data: {
+                                balanceDue: vDue,
+                                paymentStatus: vDue === 0 ? 'paid' : 'partially_paid'
+                            }
+                        });
+                    }
                 }
                 else {
                     await index_1.prisma.creditRecord.update({
                         where: { id: cr.id },
                         data: { settledAmount: cr.settledAmount + remainingToSettle }
                     });
+                    if (cr.visitId) {
+                        const vRemaining = await index_1.prisma.creditRecord.findMany({
+                            where: { visitId: cr.visitId, status: 'unpaid' }
+                        });
+                        const vDue = vRemaining.reduce((sum, r) => sum + (r.amount - r.settledAmount), 0);
+                        await index_1.prisma.visit.update({
+                            where: { id: cr.visitId },
+                            data: {
+                                balanceDue: Math.max(0, vDue),
+                                paymentStatus: 'partially_paid'
+                            }
+                        });
+                    }
                     remainingToSettle = 0;
                 }
             }
         }
-        // Recompute customer aggregates
-        const customerStats = await index_1.prisma.$queryRaw `
-      SELECT
-        COALESCE(SUM(cr.amount - cr."settledAmount"), 0) as current_credit_due,
-        COALESCE((SELECT SUM("visitTotal") FROM "Visit" WHERE "customerId" = ${customerId}), 0) as lifetime_spend,
-        COALESCE((SELECT SUM(amount) FROM "Payment" WHERE "customerId" = ${customerId}), 0) as lifetime_paid
-      FROM "CreditRecord" cr
-      WHERE cr."customerId" = ${customerId} AND cr.status = 'unpaid'
-    `;
-        if (customerStats && customerStats.length > 0) {
-            await index_1.prisma.customer.update({
-                where: { id: customerId },
-                data: {
-                    currentCreditDue: Number(customerStats[0].current_credit_due) || 0,
-                    lifetimeSpend: Number(customerStats[0].lifetime_spend) || 0,
-                    lifetimePaid: Number(customerStats[0].lifetime_paid) || 0
-                }
-            });
-        }
+        // Recompute customer aggregates cleanly
+        const remainingCredits = await index_1.prisma.creditRecord.findMany({
+            where: { customerId, status: 'unpaid' }
+        });
+        const currentCreditDue = remainingCredits.reduce((sum, c) => sum + (c.amount - c.settledAmount), 0);
+        const [visitAgg, paymentAgg] = await Promise.all([
+            index_1.prisma.visit.aggregate({
+                where: { customerId },
+                _sum: { visitTotal: true }
+            }),
+            index_1.prisma.payment.aggregate({
+                where: { customerId },
+                _sum: { amount: true }
+            })
+        ]);
+        await index_1.prisma.customer.update({
+            where: { id: customerId },
+            data: {
+                currentCreditDue,
+                lifetimeSpend: visitAgg._sum.visitTotal || 0,
+                lifetimePaid: paymentAgg._sum.amount || 0
+            }
+        });
         (0, websocket_1.broadcast)({ type: 'PAYMENT_RECORD', payment, visitId });
         res.status(201).json(payment);
     }

@@ -8,12 +8,29 @@ const router = (0, express_1.Router)();
 // Get all tables
 router.get('/', auth_1.authenticateToken, async (req, res) => {
     try {
-        const tables = await index_1.prisma.table.findMany({
-            orderBy: [
-                { gameType: 'asc' },
-                { number: 'asc' }
-            ]
-        });
+        const [tables, activePlays] = await Promise.all([
+            index_1.prisma.table.findMany({
+                orderBy: [
+                    { gameType: 'asc' },
+                    { number: 'asc' }
+                ]
+            }),
+            index_1.prisma.tablePlay.findMany({
+                where: { endTime: null },
+                select: { tableId: true }
+            })
+        ]);
+        const activeTableIds = new Set(activePlays.map(tp => tp.tableId).filter(Boolean));
+        for (const t of tables) {
+            const shouldBeOccupied = activeTableIds.has(t.id);
+            if ((t.status === 'occupied') !== shouldBeOccupied) {
+                t.status = shouldBeOccupied ? 'occupied' : 'available';
+                index_1.prisma.table.update({
+                    where: { id: t.id },
+                    data: { status: t.status }
+                }).catch(err => console.error(`Error auto-healing table ${t.id}:`, err));
+            }
+        }
         res.json(tables);
     }
     catch (error) {
@@ -33,7 +50,11 @@ router.post('/:id/assign', auth_1.authenticateToken, async (req, res) => {
         if (!table) {
             return res.status(404).json({ error: 'Table not found' });
         }
-        if (table.status === 'occupied') {
+        // Verify against actual active table plays (source of truth)
+        const activePlay = await index_1.prisma.tablePlay.findFirst({
+            where: { tableId, endTime: null }
+        });
+        if (activePlay) {
             return res.status(400).json({ error: `Table ${table.number} is already occupied` });
         }
         // 2. Identify or create customer
@@ -141,23 +162,173 @@ router.post('/:id/assign', auth_1.authenticateToken, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-// Create a single table
+// Create a single table (supports custom name/label)
 router.post('/', auth_1.authenticateToken, async (req, res) => {
     try {
-        const { number, gameType } = req.body;
+        const { number, gameType, name, ratePerHour } = req.body;
         if (!number || !gameType) {
             return res.status(400).json({ error: 'Table number and gameType are required' });
         }
+        const tableNum = parseInt(number);
+        if (isNaN(tableNum) || tableNum <= 0) {
+            return res.status(400).json({ error: 'Table number must be a positive number (e.g., 1, 2, 3)' });
+        }
+        // Check if table already exists (unique constraint on gameType + number)
+        const existing = await index_1.prisma.table.findUnique({
+            where: {
+                gameType_number: {
+                    gameType,
+                    number: tableNum
+                }
+            }
+        });
+        if (existing) {
+            const highestTable = await index_1.prisma.table.findFirst({
+                where: { gameType },
+                orderBy: { number: 'desc' }
+            });
+            const nextNum = (highestTable?.number || 0) + 1;
+            return res.status(400).json({
+                error: `${gameType} Table ${tableNum} already exists in your lounge! Next available number is Table ${nextNum}.`
+            });
+        }
+        const customName = typeof name === 'string' && name.trim() ? name.trim() : null;
+        const parsedRate = (ratePerHour !== undefined && ratePerHour !== null && !isNaN(parseFloat(ratePerHour)) && parseFloat(ratePerHour) >= 0)
+            ? parseFloat(ratePerHour)
+            : null;
         const table = await index_1.prisma.table.create({
             data: {
-                number: parseInt(number),
+                number: tableNum,
+                name: customName,
                 gameType,
+                ratePerHour: parsedRate,
                 status: 'available'
             }
         });
+        (0, websocket_1.broadcast)({ type: 'TABLE_UPDATE', table });
         res.status(201).json(table);
     }
     catch (error) {
+        if (error.code === 'P2002') {
+            return res.status(400).json({
+                error: `${req.body.gameType || 'This'} Table ${req.body.number} already exists! Please pick a different table number.`
+            });
+        }
+        console.error('Error creating table:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+// Update / Rename a table (custom name or number)
+router.patch('/:id', auth_1.authenticateToken, async (req, res) => {
+    try {
+        const tableId = parseInt(req.params.id);
+        if (isNaN(tableId)) {
+            return res.status(400).json({ error: 'Invalid table ID' });
+        }
+        const existing = await index_1.prisma.table.findUnique({
+            where: { id: tableId }
+        });
+        if (!existing) {
+            return res.status(404).json({ error: 'Table not found' });
+        }
+        // Restriction: Cannot modify table name, number, or price while running / occupied
+        const activePlay = await index_1.prisma.tablePlay.findFirst({
+            where: { tableId, endTime: null }
+        });
+        if (existing.status === 'occupied' || activePlay) {
+            const displayName = existing.name || `${existing.gameType} Table ${existing.number}`;
+            return res.status(400).json({
+                error: `Cannot modify table "${displayName}" while a game is actively running on it! Please finish or switch the game before making changes.`
+            });
+        }
+        const { name, number, ratePerHour } = req.body;
+        const updateData = {};
+        if (name !== undefined) {
+            updateData.name = typeof name === 'string' && name.trim() ? name.trim() : null;
+        }
+        if (ratePerHour !== undefined) {
+            const parsedRate = (ratePerHour !== null && !isNaN(parseFloat(ratePerHour)) && parseFloat(ratePerHour) >= 0)
+                ? parseFloat(ratePerHour)
+                : null;
+            updateData.ratePerHour = parsedRate;
+        }
+        if (number !== undefined) {
+            const tableNum = parseInt(number);
+            if (!isNaN(tableNum) && tableNum > 0 && tableNum !== existing.number) {
+                const conflict = await index_1.prisma.table.findUnique({
+                    where: {
+                        gameType_number: {
+                            gameType: existing.gameType,
+                            number: tableNum
+                        }
+                    }
+                });
+                if (conflict && conflict.id !== tableId) {
+                    return res.status(400).json({
+                        error: `${existing.gameType} Table ${tableNum} already exists in your lounge!`
+                    });
+                }
+                updateData.number = tableNum;
+            }
+        }
+        const updated = await index_1.prisma.table.update({
+            where: { id: tableId },
+            data: updateData
+        });
+        (0, websocket_1.broadcast)({ type: 'TABLE_UPDATE', table: updated });
+        res.json(updated);
+    }
+    catch (error) {
+        console.error('Error updating table:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+// Delete a table from the database
+router.delete('/:id', auth_1.authenticateToken, async (req, res) => {
+    try {
+        const tableId = parseInt(req.params.id);
+        if (isNaN(tableId)) {
+            return res.status(400).json({ error: 'Invalid table ID' });
+        }
+        const table = await index_1.prisma.table.findUnique({
+            where: { id: tableId },
+            include: {
+                tablePlays: {
+                    where: { endTime: null }
+                }
+            }
+        });
+        if (!table) {
+            return res.status(404).json({ error: 'Table not found' });
+        }
+        // Safety check: Cannot delete occupied or actively played table
+        if (table.status === 'occupied' || (table.tablePlays && table.tablePlays.length > 0)) {
+            const displayName = table.name || `${table.gameType} Table ${table.number}`;
+            return res.status(400).json({
+                error: `Cannot delete "${displayName}" because it is currently in use in an active visit! Please finish the game or switch tables before removing.`
+            });
+        }
+        // Nullify tableId in historical completed tablePlays so past session records are preserved
+        await index_1.prisma.tablePlay.updateMany({
+            where: { tableId },
+            data: { tableId: null }
+        });
+        // Remove any reservations for this table
+        await index_1.prisma.tableBooking.deleteMany({
+            where: { tableId }
+        });
+        // Delete table
+        await index_1.prisma.table.delete({
+            where: { id: tableId }
+        });
+        (0, websocket_1.broadcast)({ type: 'TABLE_DELETED', tableId });
+        res.json({
+            success: true,
+            message: `Table "${table.name || `${table.gameType} Table ${table.number}`}" deleted successfully.`
+        });
+    }
+    catch (error) {
+        console.error('Error deleting table:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -171,11 +342,13 @@ router.post('/bulk', auth_1.authenticateToken, async (req, res) => {
         const created = await index_1.prisma.table.createMany({
             data: tables.map((t) => ({
                 number: parseInt(t.number),
+                name: typeof t.name === 'string' && t.name.trim() ? t.name.trim() : null,
                 gameType: t.gameType,
                 status: 'available'
             })),
             skipDuplicates: true
         });
+        (0, websocket_1.broadcast)({ type: 'TABLE_UPDATE' });
         res.status(201).json({ count: created.count });
     }
     catch (error) {

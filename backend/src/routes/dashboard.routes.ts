@@ -73,7 +73,7 @@ router.get('/', authenticateToken, async (req, res) => {
         visitId: tp.visitId,
         tableId: tp.tableId,
         gameType: tp.gameType,
-        stationName: tp.table?.name || (tp.table ? `${tp.table.gameType} Table ${tp.table.number}` : (tp.gameType === 'PS4' ? 'PS4 Station' : tp.gameType)),
+        stationName: tp.table?.name || (tp.table ? `${tp.table.gameType === 'MidSnooker' ? 'Mid Snooker' : tp.table.gameType} Table ${tp.table.number}` : (tp.gameType === 'PS4' ? 'PS4 Station' : tp.gameType === 'MidSnooker' ? 'Mid Snooker' : tp.gameType)),
         tableNumber: tp.table?.number,
         startTime: tp.startTime,
         durationStr,
@@ -325,9 +325,28 @@ router.get('/analytics', authenticateToken, async (req, res) => {
 
     const itemSalesMap = new Map<string, { name: string; category: string; quantity: number; revenue: number }>();
     const customerPhoneSet = new Set<string>();
-    const dailyMap = new Map<string, { date: string; rawDate: Date; tableRev: number; menuRev: number; total: number; tickets: number; tableHours: number }>();
 
-    function getOrCreateDay(dStr: string, rawDate: Date) {
+    interface DayRecord {
+      date: string;
+      rawDate: Date;
+      tickets: number;
+      tableRev: number;
+      menuRev: number;
+      poolRev: number;
+      snookerRev: number;
+      ps4Rev: number;
+      cafeRev: number;
+      drinksRev: number;
+      cigarettesRev: number;
+      otherMenuRev: number;
+      creditRev: number;
+      total: number;
+      tableHours: number;
+    }
+
+    const dailyMap = new Map<string, DayRecord>();
+
+    function getOrCreateDay(dStr: string, rawDate: Date): DayRecord {
       if (!dailyMap.has(dStr)) {
         dailyMap.set(dStr, {
           date: dStr,
@@ -335,6 +354,14 @@ router.get('/analytics', authenticateToken, async (req, res) => {
           tickets: 0,
           tableRev: 0,
           menuRev: 0,
+          poolRev: 0,
+          snookerRev: 0,
+          ps4Rev: 0,
+          cafeRev: 0,
+          drinksRev: 0,
+          cigarettesRev: 0,
+          otherMenuRev: 0,
+          creditRev: 0,
           total: 0,
           tableHours: 0
         });
@@ -363,7 +390,14 @@ router.get('/analytics', authenticateToken, async (req, res) => {
       day.total += (v.visitTotal || ((v.tablesTotal || 0) + (v.itemsTotal || 0) + (v.customAmount || 0)));
 
       for (const tp of v.tablePlays) {
-        day.tableHours += getPlayDurationHours(tp.startTime, tp.endTime);
+        const hours = getPlayDurationHours(tp.startTime, tp.endTime);
+        day.tableHours += hours;
+        const norm = normalizeGameType(tp.gameType || tp.table?.gameType);
+        const rate = tp.table?.ratePerHour || (norm === 'MidSnooker' ? 220 : norm === 'PS4' ? 80 : 160);
+        const playCost = tp.cost > 0 ? tp.cost : (hours * rate);
+        if (norm === 'Pool') day.poolRev += playCost;
+        else if (norm === 'MidSnooker') day.snookerRev += playCost;
+        else if (norm === 'PS4') day.ps4Rev += playCost;
       }
 
       for (const o of v.orders) {
@@ -372,12 +406,16 @@ router.get('/analytics', authenticateToken, async (req, res) => {
 
         if (cat.includes('cafe')) {
           cafeRevenue += orderRev;
+          day.cafeRev += orderRev;
         } else if (cat.includes('drink') || cat.includes('cold')) {
           drinksRevenue += orderRev;
+          day.drinksRev += orderRev;
         } else if (cat.includes('cigar')) {
           cigarettesRevenue += orderRev;
+          day.cigarettesRev += orderRev;
         } else {
           otherMenuRevenue += orderRev;
+          day.otherMenuRev += orderRev;
         }
 
         const itemName = o.menuItem?.name || 'Unknown Item';
@@ -390,6 +428,17 @@ router.get('/analytics', authenticateToken, async (req, res) => {
         existing.quantity += o.quantity;
         existing.revenue += orderRev;
         itemSalesMap.set(itemName, existing);
+      }
+
+      // Credit extended in modern visit
+      if (v.creditRecords && v.creditRecords.length > 0) {
+        for (const cr of v.creditRecords) {
+          day.creditRev += cr.amount;
+        }
+      } else {
+        const paid = v.payments?.reduce((s, p) => s + p.amount, 0) || 0;
+        const unpaid = Math.max(0, (v.visitTotal || 0) - paid);
+        if (unpaid > 0) day.creditRev += unpaid;
       }
     }
 
@@ -415,7 +464,14 @@ router.get('/analytics', authenticateToken, async (req, res) => {
 
       const plays = Array.isArray(ls.tablePlays) ? (ls.tablePlays as any[]) : [];
       for (const tp of plays) {
-        day.tableHours += getPlayDurationHours(tp.startTime, tp.endTime);
+        const hours = getPlayDurationHours(tp.startTime, tp.endTime);
+        day.tableHours += hours;
+        const norm = normalizeGameType(tp.gameType || tp.tableName);
+        const rate = norm === 'MidSnooker' ? 220 : norm === 'PS4' ? 80 : 160;
+        const playCost = tp.cost > 0 ? tp.cost : (hours * rate);
+        if (norm === 'Pool') day.poolRev += playCost;
+        else if (norm === 'MidSnooker') day.snookerRev += playCost;
+        else if (norm === 'PS4') day.ps4Rev += playCost;
       }
 
       const orders = Array.isArray(ls.orders) ? (ls.orders as any[]) : [];
@@ -425,12 +481,16 @@ router.get('/analytics', authenticateToken, async (req, res) => {
 
         if (cat.includes('cafe')) {
           cafeRevenue += orderRev;
+          day.cafeRev += orderRev;
         } else if (cat.includes('drink') || cat.includes('cold')) {
           drinksRevenue += orderRev;
+          day.drinksRev += orderRev;
         } else if (cat.includes('cigar')) {
           cigarettesRevenue += orderRev;
+          day.cigarettesRev += orderRev;
         } else {
           otherMenuRevenue += orderRev;
+          day.otherMenuRev += orderRev;
         }
 
         const itemName = o.name || 'Unknown Item';
@@ -443,6 +503,13 @@ router.get('/analytics', authenticateToken, async (req, res) => {
         existing.quantity += (o.quantity || 1);
         existing.revenue += orderRev;
         itemSalesMap.set(itemName, existing);
+      }
+
+      // Credit extended in legacy session
+      if (ls.balanceDue && ls.balanceDue > 0) {
+        day.creditRev += ls.balanceDue;
+      } else if (ls.paymentStatus === 'udhar' && ls.totalBill) {
+        day.creditRev += ls.totalBill;
       }
     }
 
@@ -477,16 +544,57 @@ router.get('/analytics', authenticateToken, async (req, res) => {
     ]);
 
     const dailyTrend = Array.from(dailyMap.values())
+      .filter(d => d.tickets > 0 || d.total > 0 || d.creditRev > 0)
       .sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime())
       .map(d => ({
         date: d.date,
         isoDate: `${d.rawDate.getFullYear()}-${String(d.rawDate.getMonth() + 1).padStart(2, '0')}-${String(d.rawDate.getDate()).padStart(2, '0')}`,
         tickets: d.tickets,
         tableRev: Math.round(d.tableRev),
-        menuRev: Math.round(d.menuRev),
+        poolRev: Math.round(d.poolRev),
+        snookerRev: Math.round(d.snookerRev),
+        ps4Rev: Math.round(d.ps4Rev),
+        menuRev: Math.round(d.cafeRev + d.drinksRev + d.cigarettesRev + d.otherMenuRev),
+        cafeRev: Math.round(d.cafeRev + d.drinksRev),
+        creditRev: Math.round(d.creditRev),
         total: Math.round(d.total),
         tableHours: Number(d.tableHours.toFixed(1))
       }));
+
+    // For visualization: chronological ascending (oldest to newest)
+    const chartData = Array.from(dailyMap.values())
+      .filter(d => d.tickets > 0 || d.total > 0 || d.creditRev > 0)
+      .sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime())
+      .map(d => {
+        const dObj = new Date(d.rawDate);
+        return {
+          date: dObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+          fullDate: d.date,
+          isoDate: `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`,
+          totalSales: Math.round(d.total),
+          poolSales: Math.round(d.poolRev),
+          snookerSales: Math.round(d.snookerRev),
+          tableSales: Math.round(d.poolRev + d.snookerRev + d.ps4Rev),
+          cafeSales: Math.round(d.cafeRev + d.drinksRev),
+          foodSales: Math.round(d.cafeRev),
+          drinksSales: Math.round(d.drinksRev),
+          cigarettesSales: Math.round(d.cigarettesRev),
+          creditSales: Math.round(d.creditRev),
+          tableHours: Number(d.tableHours.toFixed(1))
+        };
+      });
+
+    const chartSummary = {
+      totalSales: Math.round(totalRevenue),
+      snookerSales: Math.round(Array.from(dailyMap.values()).reduce((s, d) => s + d.snookerRev, 0)),
+      poolSales: Math.round(Array.from(dailyMap.values()).reduce((s, d) => s + d.poolRev, 0)),
+      tableSales: Math.round(tableRevenue),
+      cafeSales: Math.round(cafeRevenue + drinksRevenue),
+      foodSales: Math.round(cafeRevenue),
+      drinksSales: Math.round(drinksRevenue),
+      cigarettesSales: Math.round(cigarettesRevenue),
+      creditSales: Math.round(Array.from(dailyMap.values()).reduce((s, d) => s + d.creditRev, 0))
+    };
 
     const topItems = Array.from(itemSalesMap.values())
       .sort((a, b) => b.revenue - a.revenue)
@@ -548,7 +656,9 @@ router.get('/analytics', authenticateToken, async (req, res) => {
       },
       topItems,
       topSellingItems: topItems,
-      dailyTrend
+      dailyTrend,
+      chartData,
+      chartSummary
     });
   } catch (error: any) {
     console.error('Error in dashboard analytics:', error);

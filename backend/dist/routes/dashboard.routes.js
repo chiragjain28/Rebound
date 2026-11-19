@@ -6,95 +6,89 @@ const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 router.get('/', auth_1.authenticateToken, async (req, res) => {
     try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const [tables, activeVisits, completedVisits, paymentsToday, unpaidCredits, totalCompletedVisits] = await Promise.all([
+        const dateQuery = (req.query.date || '').trim();
+        let targetDate = new Date();
+        if (dateQuery) {
+            targetDate = new Date(dateQuery);
+        }
+        const dayStart = new Date(targetDate);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(targetDate);
+        dayEnd.setHours(23, 59, 59, 999);
+        const [tables, activePlays, bookings, unpaidCredits] = await Promise.all([
             index_1.prisma.table.findMany({
-                orderBy: { number: 'asc' }
+                orderBy: [
+                    { gameType: 'asc' },
+                    { number: 'asc' }
+                ]
             }),
-            index_1.prisma.visit.findMany({
-                where: { status: 'active' },
+            index_1.prisma.tablePlay.findMany({
+                where: { endTime: null },
                 include: {
-                    customer: true,
-                    orders: {
-                        include: { menuItem: true }
-                    },
-                    payments: true,
-                    tablePlays: {
-                        include: { table: true }
-                    },
-                    creditRecords: true
-                },
-                orderBy: { startTime: 'desc' }
-            }),
-            index_1.prisma.visit.findMany({
-                where: { status: 'completed' },
-                orderBy: { endTime: 'desc' },
-                take: 10,
-                include: {
-                    customer: true,
-                    orders: {
-                        include: { menuItem: true }
-                    },
-                    payments: true,
-                    tablePlays: {
-                        include: { table: true }
+                    table: true,
+                    visit: {
+                        include: {
+                            customer: true,
+                            orders: {
+                                include: { menuItem: true }
+                            }
+                        }
                     }
-                }
+                },
+                orderBy: { startTime: 'asc' }
             }),
-            index_1.prisma.payment.findMany({
-                where: {
-                    createdAt: { gte: today }
-                }
+            index_1.prisma.tableBooking.findMany({
+                orderBy: { bookingTime: 'asc' },
+                include: { table: true }
             }),
             index_1.prisma.creditRecord.findMany({
                 where: { status: 'unpaid' }
-            }),
-            index_1.prisma.visit.count({
-                where: { status: 'completed' }
             })
         ]);
-        const salesToday = paymentsToday.reduce((sum, p) => sum + p.amount, 0);
-        const totalCreditOutstanding = unpaidCredits.reduce((sum, c) => sum + (c.amount - c.settledAmount), 0);
-        // Format active visits with backward compatibility keys for dashboard UI
-        const formattedActiveVisits = activeVisits.map((v) => {
-            const activeTablePlay = v.tablePlays.find(tp => !tp.endTime);
+        // Auto-heal & reconcile table status with active plays (source of truth)
+        const activeTableIds = new Set(activePlays.map(tp => tp.tableId).filter(Boolean));
+        for (const t of tables) {
+            const shouldBeOccupied = activeTableIds.has(t.id);
+            if ((t.status === 'occupied') !== shouldBeOccupied) {
+                t.status = shouldBeOccupied ? 'occupied' : 'available';
+                index_1.prisma.table.update({
+                    where: { id: t.id },
+                    data: { status: t.status }
+                }).catch(err => console.error(`Error auto-healing table ${t.id}:`, err));
+            }
+        }
+        const formattedActivePlays = activePlays.map(tp => {
+            const elapsedMinutes = Math.max(0, Math.floor((Date.now() - new Date(tp.startTime).getTime()) / 60000));
+            const hours = Math.floor(elapsedMinutes / 60);
+            const mins = elapsedMinutes % 60;
+            const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+            const rate = tp.table?.ratePerHour || (tp.table?.gameType === 'MidSnooker' ? 220 : 160);
+            const runningCost = Math.round((elapsedMinutes / 60) * rate * 100) / 100;
             return {
-                ...v,
-                customerName: v.customer?.name || 'Guest',
-                customerPhone: v.customer?.phone || '',
-                gameType: activeTablePlay?.gameType || 'None',
-                playerCount: activeTablePlay?.playerCount || 1,
-                tableId: activeTablePlay?.tableId || null,
-                table: activeTablePlay?.table || null,
-                gameCost: v.tablesTotal,
-                menuCost: v.itemsTotal,
-                totalBill: v.visitTotal,
-                priorUdhar: v.customer?.currentCreditDue || 0,
-                priorCredit: v.customer?.currentCreditDue || 0
+                id: tp.id,
+                visitId: tp.visitId,
+                tableId: tp.tableId,
+                gameType: tp.gameType,
+                stationName: tp.table?.name || (tp.table ? `${tp.table.gameType === 'MidSnooker' ? 'Mid Snooker' : tp.table.gameType} Table ${tp.table.number}` : (tp.gameType === 'PS4' ? 'PS4 Station' : tp.gameType === 'MidSnooker' ? 'Mid Snooker' : tp.gameType)),
+                tableNumber: tp.table?.number,
+                startTime: tp.startTime,
+                durationStr,
+                elapsedMinutes,
+                runningCost,
+                ratePerHour: rate,
+                customerName: tp.visit?.customer?.name || 'Walk-in',
+                customerPhone: tp.visit?.customer?.phone || '',
+                customerId: tp.visit?.customer?.id,
+                currentCreditDue: tp.visit?.customer?.currentCreditDue || 0,
+                ordersCount: tp.visit?.orders?.length || 0,
+                orders: tp.visit?.orders || []
             };
         });
-        const formattedCompletedVisits = completedVisits.map((v) => ({
-            ...v,
-            customerName: v.customer?.name || 'Guest',
-            customerPhone: v.customer?.phone || '',
-            gameCost: v.tablesTotal,
-            menuCost: v.itemsTotal,
-            totalBill: v.visitTotal
-        }));
         res.json({
             tables,
-            activeVisitsCount: formattedActiveVisits.length,
-            activeSessionsCount: formattedActiveVisits.length,
-            activeVisits: formattedActiveVisits,
-            activeSessions: formattedActiveVisits,
-            completedVisits: formattedCompletedVisits,
-            completedSessions: formattedCompletedVisits,
-            totalCompletedVisits,
-            totalCompletedSessions: totalCompletedVisits,
-            salesToday,
-            totalCreditOutstanding,
-            udharOutstanding: totalCreditOutstanding
+            activePlays: formattedActivePlays,
+            activePlaysCount: formattedActivePlays.length,
+            bookings
         });
     }
     catch (error) {
@@ -118,43 +112,190 @@ router.get('/analytics', auth_1.authenticateToken, async (req, res) => {
     try {
         const range = req.query.range || '30days';
         const now = new Date();
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - 7);
+        startOfWeek.setHours(0, 0, 0, 0);
+        const startOfMonth = new Date(now);
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        const startOf30Days = new Date(now);
+        startOf30Days.setDate(now.getDate() - 30);
+        startOf30Days.setHours(0, 0, 0, 0);
         let startDate = new Date();
-        if (range === 'today') {
-            startDate.setHours(0, 0, 0, 0);
+        let endDate = new Date();
+        let daysInRange = 30;
+        let periodLabel = 'Last 30 Days';
+        if (req.query.date) {
+            // Specific date format: YYYY-MM-DD
+            const dateStr = req.query.date;
+            const parts = dateStr.split('-').map(Number);
+            if (parts.length === 3) {
+                startDate = new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+                endDate = new Date(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999);
+                daysInRange = 1;
+                periodLabel = startDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+            }
         }
-        else if (range === '7days') {
-            startDate.setDate(now.getDate() - 7);
-            startDate.setHours(0, 0, 0, 0);
-        }
-        else if (range === 'month') {
-            startDate.setDate(1);
-            startDate.setHours(0, 0, 0, 0);
+        else if (req.query.month) {
+            // Specific month format: YYYY-MM
+            const monthStr = req.query.month;
+            const parts = monthStr.split('-').map(Number);
+            if (parts.length === 2) {
+                startDate = new Date(parts[0], parts[1] - 1, 1, 0, 0, 0, 0);
+                endDate = new Date(parts[0], parts[1], 0, 23, 59, 59, 999);
+                daysInRange = endDate.getDate();
+                periodLabel = startDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+            }
         }
         else {
-            startDate.setDate(now.getDate() - 30);
-            startDate.setHours(0, 0, 0, 0);
-        }
-        const completedVisits = await index_1.prisma.visit.findMany({
-            where: {
-                status: 'completed',
-                startTime: { gte: startDate }
-            },
-            include: {
-                customer: true,
-                tablePlays: true,
-                orders: {
-                    include: { menuItem: true }
-                },
-                payments: true,
-                creditRecords: true
-            },
-            orderBy: { startTime: 'desc' }
-        });
-        const payments = await index_1.prisma.payment.findMany({
-            where: {
-                createdAt: { gte: startDate }
+            if (range === 'today') {
+                startDate = new Date(startOfDay);
+                endDate = new Date();
+                daysInRange = 1;
+                periodLabel = 'Today';
             }
-        });
+            else if (range === '7days') {
+                startDate = new Date(startOfWeek);
+                endDate = new Date();
+                daysInRange = 7;
+                periodLabel = 'Last 7 Days';
+            }
+            else if (range === 'month') {
+                startDate = new Date(startOfMonth);
+                endDate = new Date();
+                daysInRange = Math.max(1, now.getDate());
+                periodLabel = 'This Month';
+            }
+            else {
+                startDate = new Date(startOf30Days);
+                endDate = new Date();
+                daysInRange = 30;
+                periodLabel = 'Last 30 Days';
+            }
+        }
+        // Benchmark boundary to ensure accurate daily, weekly, monthly active table hours
+        const benchmarkStart = new Date(Math.min(startDate.getTime(), startOf30Days.getTime(), startOfMonth.getTime(), startOfWeek.getTime(), startOfDay.getTime()));
+        const [completedVisits, legacySessions, payments, benchmarkTablePlays, benchmarkLegacySessions] = await Promise.all([
+            index_1.prisma.visit.findMany({
+                where: {
+                    status: 'completed',
+                    startTime: { gte: startDate, lte: endDate }
+                },
+                include: {
+                    customer: true,
+                    tablePlays: {
+                        include: { table: true }
+                    },
+                    orders: {
+                        include: { menuItem: true }
+                    },
+                    payments: true,
+                    creditRecords: true
+                },
+                orderBy: { startTime: 'desc' }
+            }),
+            index_1.prisma.legacySession.findMany({
+                where: {
+                    startTime: { gte: startDate, lte: endDate }
+                },
+                orderBy: { startTime: 'desc' }
+            }),
+            index_1.prisma.payment.findMany({
+                where: {
+                    createdAt: { gte: startDate, lte: endDate }
+                }
+            }),
+            index_1.prisma.tablePlay.findMany({
+                where: {
+                    startTime: { gte: benchmarkStart },
+                    endTime: { not: null }
+                },
+                include: { table: true }
+            }),
+            index_1.prisma.legacySession.findMany({
+                where: {
+                    startTime: { gte: benchmarkStart }
+                },
+                select: { startTime: true, endTime: true, tablePlays: true }
+            })
+        ]);
+        // Duration calculation helper: only count finalized/completed plays.
+        // If a game is currently running (no endTime), it is NOT counted until it ends.
+        function getPlayDurationHours(start, end) {
+            if (!start || !end)
+                return 0;
+            const s = new Date(start).getTime();
+            const e = new Date(end).getTime();
+            const diff = (e - s) / (1000 * 60 * 60);
+            return (diff > 0 && diff < 16) ? diff : (diff >= 16 ? 4 : 0);
+        }
+        function normalizeGameType(gt) {
+            const s = (gt || '').toLowerCase();
+            if (s.includes('snooker'))
+                return 'MidSnooker';
+            if (s.includes('ps4') || s.includes('ps5') || s.includes('playstation'))
+                return 'PS4';
+            if (s.includes('pool'))
+                return 'Pool';
+            return 'Other';
+        }
+        const allBenchmarkPlays = [];
+        for (const tp of benchmarkTablePlays) {
+            if (!tp.endTime)
+                continue;
+            const hours = getPlayDurationHours(tp.startTime, tp.endTime);
+            if (hours > 0) {
+                allBenchmarkPlays.push({
+                    startTime: new Date(tp.startTime),
+                    hours,
+                    gameType: normalizeGameType(tp.gameType || tp.table?.gameType)
+                });
+            }
+        }
+        for (const ls of benchmarkLegacySessions) {
+            const plays = Array.isArray(ls.tablePlays) ? ls.tablePlays : [];
+            for (const tp of plays) {
+                if (!tp.startTime || !tp.endTime)
+                    continue;
+                const hours = getPlayDurationHours(tp.startTime, tp.endTime);
+                if (hours > 0) {
+                    allBenchmarkPlays.push({
+                        startTime: new Date(tp.startTime),
+                        hours,
+                        gameType: normalizeGameType(tp.gameType || tp.tableName)
+                    });
+                }
+            }
+        }
+        const calcHoursForPeriod = (since) => {
+            const filtered = allBenchmarkPlays.filter(p => p.startTime >= since);
+            return filtered.reduce((acc, p) => acc + p.hours, 0);
+        };
+        const todayHours = calcHoursForPeriod(startOfDay);
+        const weekHours = calcHoursForPeriod(startOfWeek);
+        const monthHours = calcHoursForPeriod(startOfMonth);
+        // Filtered range active table hours & breakdown
+        const periodPlays = allBenchmarkPlays.filter(p => p.startTime >= startDate && p.startTime <= endDate);
+        const periodHours = periodPlays.reduce((acc, p) => acc + p.hours, 0);
+        const byGameType = {
+            pool: 0,
+            midSnooker: 0,
+            ps4: 0,
+            other: 0
+        };
+        for (const p of periodPlays) {
+            if (p.gameType === 'Pool')
+                byGameType.pool += p.hours;
+            else if (p.gameType === 'MidSnooker')
+                byGameType.midSnooker += p.hours;
+            else if (p.gameType === 'PS4')
+                byGameType.ps4 += p.hours;
+            else
+                byGameType.other += p.hours;
+        }
+        const dailyAverageHours = daysInRange > 0 ? periodHours / daysInRange : 0;
         let tableRevenue = 0;
         let cafeRevenue = 0;
         let drinksRevenue = 0;
@@ -162,25 +303,77 @@ router.get('/analytics', auth_1.authenticateToken, async (req, res) => {
         let otherMenuRevenue = 0;
         const itemSalesMap = new Map();
         const customerPhoneSet = new Set();
+        const dailyMap = new Map();
+        function getOrCreateDay(dStr, rawDate) {
+            if (!dailyMap.has(dStr)) {
+                dailyMap.set(dStr, {
+                    date: dStr,
+                    rawDate,
+                    tickets: 0,
+                    tableRev: 0,
+                    menuRev: 0,
+                    poolRev: 0,
+                    snookerRev: 0,
+                    ps4Rev: 0,
+                    cafeRev: 0,
+                    drinksRev: 0,
+                    cigarettesRev: 0,
+                    otherMenuRev: 0,
+                    creditRev: 0,
+                    total: 0,
+                    tableHours: 0
+                });
+            }
+            return dailyMap.get(dStr);
+        }
+        // 1. Process Modern Visits
         for (const v of completedVisits) {
             if (v.customer?.phone) {
                 customerPhoneSet.add(v.customer.phone.trim());
             }
             tableRevenue += v.tablesTotal || 0;
+            const rawDate = new Date(v.startTime);
+            const dStr = rawDate.toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+            const day = getOrCreateDay(dStr, rawDate);
+            day.tickets += 1;
+            day.tableRev += (v.tablesTotal || 0);
+            day.menuRev += (v.itemsTotal || 0);
+            day.total += (v.visitTotal || ((v.tablesTotal || 0) + (v.itemsTotal || 0) + (v.customAmount || 0)));
+            for (const tp of v.tablePlays) {
+                const hours = getPlayDurationHours(tp.startTime, tp.endTime);
+                day.tableHours += hours;
+                const norm = normalizeGameType(tp.gameType || tp.table?.gameType);
+                const rate = tp.table?.ratePerHour || (norm === 'MidSnooker' ? 220 : norm === 'PS4' ? 80 : 160);
+                const playCost = tp.cost > 0 ? tp.cost : (hours * rate);
+                if (norm === 'Pool')
+                    day.poolRev += playCost;
+                else if (norm === 'MidSnooker')
+                    day.snookerRev += playCost;
+                else if (norm === 'PS4')
+                    day.ps4Rev += playCost;
+            }
             for (const o of v.orders) {
                 const cat = o.menuItem?.category?.toLowerCase() || '';
                 const orderRev = o.price * o.quantity;
                 if (cat.includes('cafe')) {
                     cafeRevenue += orderRev;
+                    day.cafeRev += orderRev;
                 }
                 else if (cat.includes('drink') || cat.includes('cold')) {
                     drinksRevenue += orderRev;
+                    day.drinksRev += orderRev;
                 }
                 else if (cat.includes('cigar')) {
                     cigarettesRevenue += orderRev;
+                    day.cigarettesRev += orderRev;
                 }
                 else {
                     otherMenuRevenue += orderRev;
+                    day.otherMenuRev += orderRev;
                 }
                 const itemName = o.menuItem?.name || 'Unknown Item';
                 const existing = itemSalesMap.get(itemName) || {
@@ -193,19 +386,194 @@ router.get('/analytics', auth_1.authenticateToken, async (req, res) => {
                 existing.revenue += orderRev;
                 itemSalesMap.set(itemName, existing);
             }
+            // Credit extended in modern visit
+            if (v.creditRecords && v.creditRecords.length > 0) {
+                for (const cr of v.creditRecords) {
+                    day.creditRev += cr.amount;
+                }
+            }
+            else {
+                const paid = v.payments?.reduce((s, p) => s + p.amount, 0) || 0;
+                const unpaid = Math.max(0, (v.visitTotal || 0) - paid);
+                if (unpaid > 0)
+                    day.creditRev += unpaid;
+            }
+        }
+        // 2. Process Legacy Sessions in range
+        for (const ls of legacySessions) {
+            if (ls.customerPhone) {
+                customerPhoneSet.add(ls.customerPhone.trim());
+            }
+            tableRevenue += ls.tablesTotal || 0;
+            const rawDate = new Date(ls.startTime);
+            const dStr = rawDate.toLocaleDateString('en-IN', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+            const day = getOrCreateDay(dStr, rawDate);
+            day.tickets += 1;
+            day.tableRev += (ls.tablesTotal || 0);
+            day.menuRev += (ls.itemsTotal || 0);
+            day.total += (ls.totalBill || ((ls.tablesTotal || 0) + (ls.itemsTotal || 0) + (ls.customAmount || 0)));
+            const plays = Array.isArray(ls.tablePlays) ? ls.tablePlays : [];
+            for (const tp of plays) {
+                const hours = getPlayDurationHours(tp.startTime, tp.endTime);
+                day.tableHours += hours;
+                const norm = normalizeGameType(tp.gameType || tp.tableName);
+                const rate = norm === 'MidSnooker' ? 220 : norm === 'PS4' ? 80 : 160;
+                const playCost = tp.cost > 0 ? tp.cost : (hours * rate);
+                if (norm === 'Pool')
+                    day.poolRev += playCost;
+                else if (norm === 'MidSnooker')
+                    day.snookerRev += playCost;
+                else if (norm === 'PS4')
+                    day.ps4Rev += playCost;
+            }
+            const orders = Array.isArray(ls.orders) ? ls.orders : [];
+            for (const o of orders) {
+                const cat = (o.category || '').toLowerCase();
+                const orderRev = (o.price || 0) * (o.quantity || 1);
+                if (cat.includes('cafe')) {
+                    cafeRevenue += orderRev;
+                    day.cafeRev += orderRev;
+                }
+                else if (cat.includes('drink') || cat.includes('cold')) {
+                    drinksRevenue += orderRev;
+                    day.drinksRev += orderRev;
+                }
+                else if (cat.includes('cigar')) {
+                    cigarettesRevenue += orderRev;
+                    day.cigarettesRev += orderRev;
+                }
+                else {
+                    otherMenuRevenue += orderRev;
+                    day.otherMenuRev += orderRev;
+                }
+                const itemName = o.name || 'Unknown Item';
+                const existing = itemSalesMap.get(itemName) || {
+                    name: itemName,
+                    category: o.category || 'General',
+                    quantity: 0,
+                    revenue: 0
+                };
+                existing.quantity += (o.quantity || 1);
+                existing.revenue += orderRev;
+                itemSalesMap.set(itemName, existing);
+            }
+            // Credit extended in legacy session
+            if (ls.balanceDue && ls.balanceDue > 0) {
+                day.creditRev += ls.balanceDue;
+            }
+            else if (ls.paymentStatus === 'udhar' && ls.totalBill) {
+                day.creditRev += ls.totalBill;
+            }
         }
         const totalRevenue = tableRevenue + cafeRevenue + drinksRevenue + cigarettesRevenue + otherMenuRevenue;
-        const totalPaymentsReceived = payments.reduce((sum, p) => sum + p.amount, 0);
-        const topSellingItems = Array.from(itemSalesMap.values())
+        // Payment split (Cash vs UPI)
+        let cash = 0;
+        let upi = 0;
+        for (const p of payments) {
+            const method = (p.method || '').toLowerCase();
+            if (method.includes('upi') ||
+                method.includes('qr') ||
+                method.includes('online') ||
+                method.includes('gpay') ||
+                method.includes('phonepe') ||
+                method.includes('paytm')) {
+                upi += p.amount;
+            }
+            else {
+                cash += p.amount;
+            }
+        }
+        const totalCollected = cash + upi;
+        // Customer metrics
+        const [totalRegistered, newInPeriod] = await Promise.all([
+            index_1.prisma.customer.count(),
+            index_1.prisma.customer.count({
+                where: { createdAt: { gte: startDate } }
+            })
+        ]);
+        const dailyTrend = Array.from(dailyMap.values())
+            .filter(d => d.tickets > 0 || d.total > 0 || d.creditRev > 0)
+            .sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime())
+            .map(d => ({
+            date: d.date,
+            isoDate: `${d.rawDate.getFullYear()}-${String(d.rawDate.getMonth() + 1).padStart(2, '0')}-${String(d.rawDate.getDate()).padStart(2, '0')}`,
+            tickets: d.tickets,
+            tableRev: Math.round(d.tableRev),
+            poolRev: Math.round(d.poolRev),
+            snookerRev: Math.round(d.snookerRev),
+            ps4Rev: Math.round(d.ps4Rev),
+            menuRev: Math.round(d.cafeRev + d.drinksRev + d.cigarettesRev + d.otherMenuRev),
+            cafeRev: Math.round(d.cafeRev + d.drinksRev),
+            creditRev: Math.round(d.creditRev),
+            total: Math.round(d.total),
+            tableHours: Number(d.tableHours.toFixed(1))
+        }));
+        // For visualization: chronological ascending (oldest to newest)
+        const chartData = Array.from(dailyMap.values())
+            .filter(d => d.tickets > 0 || d.total > 0 || d.creditRev > 0)
+            .sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime())
+            .map(d => {
+            const dObj = new Date(d.rawDate);
+            return {
+                date: dObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+                fullDate: d.date,
+                isoDate: `${dObj.getFullYear()}-${String(dObj.getMonth() + 1).padStart(2, '0')}-${String(dObj.getDate()).padStart(2, '0')}`,
+                totalSales: Math.round(d.total),
+                poolSales: Math.round(d.poolRev),
+                snookerSales: Math.round(d.snookerRev),
+                tableSales: Math.round(d.poolRev + d.snookerRev + d.ps4Rev),
+                cafeSales: Math.round(d.cafeRev + d.drinksRev),
+                foodSales: Math.round(d.cafeRev),
+                drinksSales: Math.round(d.drinksRev),
+                cigarettesSales: Math.round(d.cigarettesRev),
+                creditSales: Math.round(d.creditRev),
+                tableHours: Number(d.tableHours.toFixed(1))
+            };
+        });
+        const chartSummary = {
+            totalSales: Math.round(totalRevenue),
+            snookerSales: Math.round(Array.from(dailyMap.values()).reduce((s, d) => s + d.snookerRev, 0)),
+            poolSales: Math.round(Array.from(dailyMap.values()).reduce((s, d) => s + d.poolRev, 0)),
+            tableSales: Math.round(tableRevenue),
+            cafeSales: Math.round(cafeRevenue + drinksRevenue),
+            foodSales: Math.round(cafeRevenue),
+            drinksSales: Math.round(drinksRevenue),
+            cigarettesSales: Math.round(cigarettesRevenue),
+            creditSales: Math.round(Array.from(dailyMap.values()).reduce((s, d) => s + d.creditRev, 0))
+        };
+        const topItems = Array.from(itemSalesMap.values())
             .sort((a, b) => b.revenue - a.revenue)
-            .slice(0, 10);
+            .slice(0, 8);
+        const categoryRevenue = {
+            billiards: tableRevenue,
+            cafe: cafeRevenue,
+            drinks: drinksRevenue,
+            cigarettes: cigarettesRevenue,
+            other: otherMenuRevenue
+        };
+        const totalVisitsCount = completedVisits.length + legacySessions.length;
         res.json({
             range,
-            totalVisits: completedVisits.length,
-            totalSessions: completedVisits.length,
-            uniqueCustomers: customerPhoneSet.size,
+            periodLabel,
+            startDate: startDate.toISOString(),
+            endDate: endDate.toISOString(),
+            totalBilled: totalRevenue,
+            totalCollected,
             totalRevenue,
-            totalPaymentsReceived,
+            totalPaymentsReceived: totalCollected,
+            totalTicketsCount: totalVisitsCount,
+            totalVisits: totalVisitsCount,
+            totalSessions: totalVisitsCount,
+            uniqueCustomers: customerPhoneSet.size,
+            paymentSplit: {
+                cash,
+                upi
+            },
+            categoryRevenue,
             categoryBreakdown: {
                 tables: tableRevenue,
                 cafe: cafeRevenue,
@@ -213,7 +581,30 @@ router.get('/analytics', auth_1.authenticateToken, async (req, res) => {
                 cigarettes: cigarettesRevenue,
                 other: otherMenuRevenue
             },
-            topSellingItems
+            customerStats: {
+                totalRegistered,
+                newInPeriod,
+                activeInPeriod: customerPhoneSet.size
+            },
+            tableHoursStats: {
+                todayHours: Number(todayHours.toFixed(1)),
+                weekHours: Number(weekHours.toFixed(1)),
+                monthHours: Number(monthHours.toFixed(1)),
+                periodHours: Number(periodHours.toFixed(1)),
+                periodGamesCount: periodPlays.length,
+                dailyAverageHours: Number(dailyAverageHours.toFixed(1)),
+                byGameType: {
+                    pool: Number(byGameType.pool.toFixed(1)),
+                    midSnooker: Number(byGameType.midSnooker.toFixed(1)),
+                    ps4: Number(byGameType.ps4.toFixed(1)),
+                    other: Number(byGameType.other.toFixed(1))
+                }
+            },
+            topItems,
+            topSellingItems: topItems,
+            dailyTrend,
+            chartData,
+            chartSummary
         });
     }
     catch (error) {

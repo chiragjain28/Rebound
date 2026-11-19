@@ -34,11 +34,13 @@ export function getOperational2AMCutoff(referenceDate: Date): Date {
  * IMPORTANT: Table plays and visits are strictly capped at their 02:00 AM operational cutoff,
  * preventing accidental billing across sleep/standby periods or afternoon restarts.
  */
-export async function runNightlyAutoClose(cutoffDate?: Date): Promise<{ closedCount: number; details: any[] }> {
+export async function runNightlyAutoClose(
+  cutoffDate?: Date,
+  options: { silentIfEmpty?: boolean } = { silentIfEmpty: true }
+): Promise<{ closedCount: number; details: any[] }> {
   const now = new Date();
   const effectiveCutoff = cutoffDate || now;
-
-  console.log(`[AUTO-CLOSE] Running nightly auto-close for visits active as of ${effectiveCutoff.toISOString()}`);
+  const cutoffIST = effectiveCutoff.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
   // Find all active visits started before or at cutoff
   const activeVisits = await prisma.visit.findMany({
@@ -56,9 +58,13 @@ export async function runNightlyAutoClose(cutoffDate?: Date): Promise<{ closedCo
   });
 
   if (activeVisits.length === 0) {
-    console.log('[AUTO-CLOSE] No active visits found to auto-close.');
+    if (!options.silentIfEmpty) {
+      console.log(`[AUTO-CLOSE] Checked for active visits before 02:00 AM IST (${cutoffIST}). None found.`);
+    }
     return { closedCount: 0, details: [] };
   }
+
+  console.log(`[AUTO-CLOSE] Found ${activeVisits.length} active visit(s) started before 02:00 AM IST cutoff (${cutoffIST}). Auto-closing now...`);
 
   const closedDetails: any[] = [];
 

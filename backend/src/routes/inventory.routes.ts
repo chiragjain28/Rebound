@@ -43,24 +43,29 @@ router.get('/', authenticateToken, async (req, res) => {
       include: {
         menuItem: {
           select: { id: true, name: true, price: true, category: true }
+        },
+        _count: {
+          select: { transactions: true }
         }
       },
       orderBy: [
         { category: 'asc' },
-        { subCategory: 'asc' },
         { name: 'asc' }
       ]
     });
 
     const enriched = items.map(item => {
       const { boxes, loose } = computeStockUnits(item.currentStock, item.piecesPerBox);
-      const isLowStock = item.currentStock <= item.minStockAlert && item.currentStock > 0;
-      const isOutOfStock = item.currentStock <= 0;
+      const hasHistory = (item._count?.transactions || 0) > 0 || item.currentStock > 0;
+      const isUncounted = !hasHistory && item.currentStock === 0;
+      const isLowStock = hasHistory && item.currentStock <= item.minStockAlert && item.currentStock > 0;
+      const isOutOfStock = hasHistory && item.currentStock <= 0;
 
       return {
         ...item,
         boxesCount: boxes,
         looseCount: loose,
+        isUncounted,
         isLowStock,
         isOutOfStock
       };
@@ -69,6 +74,8 @@ router.get('/', authenticateToken, async (req, res) => {
     // Client-side filter for low_stock if requested
     const filtered = status === 'low_stock'
       ? enriched.filter(i => i.isLowStock)
+      : status === 'out_of_stock'
+      ? enriched.filter(i => i.isOutOfStock)
       : enriched;
 
     res.json(filtered);
@@ -82,13 +89,19 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
     const items = await prisma.inventoryItem.findMany({
-      where: { isActive: true }
+      where: { isActive: true },
+      include: {
+        _count: {
+          select: { transactions: true }
+        }
+      }
     });
 
     let cafeItemsCount = 0;
     let clubItemsCount = 0;
     let lowStockCount = 0;
     let outOfStockCount = 0;
+    let uncountedCount = 0;
     let totalValuation = 0;
 
     // Cigarette-specific stats
@@ -103,7 +116,10 @@ router.get('/stats', authenticateToken, async (req, res) => {
         clubItemsCount++;
       }
 
-      if (item.currentStock <= 0) {
+      const hasHistory = (item._count?.transactions || 0) > 0 || item.currentStock > 0;
+      if (!hasHistory && item.currentStock === 0) {
+        uncountedCount++;
+      } else if (item.currentStock <= 0) {
         outOfStockCount++;
       } else if (item.currentStock <= item.minStockAlert) {
         lowStockCount++;
@@ -114,7 +130,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
         totalValuation += item.currentStock * price;
       }
 
-      if (item.subCategory?.toLowerCase() === 'cigarettes') {
+      if (item.category?.toLowerCase() === 'club' || item.subCategory?.toLowerCase() === 'cigarettes') {
         cigaretteBrandsCount++;
         totalCigarettesCount += item.currentStock;
         totalCigaretteBoxesCount += Math.floor(item.currentStock / (item.piecesPerBox || 10));
@@ -127,6 +143,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
       clubItemsCount,
       lowStockCount,
       outOfStockCount,
+      uncountedCount,
       totalValuation: Math.round(totalValuation),
       cigarettes: {
         totalLoose: totalCigarettesCount,
@@ -368,17 +385,20 @@ router.post('/sync-menu', authenticateToken, async (req, res) => {
 
     for (const m of menuItems) {
       const isCigarette = m.category.toLowerCase().includes('cigarette');
-      const isColdDrink = m.category.toLowerCase().includes('drink');
+      const isColdDrink = m.category.toLowerCase().includes('drink') || m.category.toLowerCase().includes('beverage');
 
-      let category = 'Cafe';
-      let subCategory = 'Food & Snacks';
+      // Do NOT sync cooked food recipes/dishes directly into inventory items - cafe dishes track raw materials
+      if (!isCigarette && !isColdDrink) {
+        continue;
+      }
+
+      let category = isCigarette ? 'Club' : 'Cafe';
       let piecesPerBox = 1;
       let unit = 'pieces';
       let minStockAlert = 5;
 
       if (isCigarette) {
         category = 'Club';
-        subCategory = 'Cigarettes';
         unit = 'pieces';
         minStockAlert = 10;
 
@@ -390,7 +410,6 @@ router.post('/sync-menu', authenticateToken, async (req, res) => {
         }
       } else if (isColdDrink) {
         category = 'Cafe';
-        subCategory = 'Cold Drinks';
         unit = 'cans';
         minStockAlert = 6;
       }
@@ -404,7 +423,7 @@ router.post('/sync-menu', authenticateToken, async (req, res) => {
           data: {
             name: m.name,
             category,
-            subCategory,
+            subCategory: null,
             currentStock: 0,
             unit,
             piecesPerBox,

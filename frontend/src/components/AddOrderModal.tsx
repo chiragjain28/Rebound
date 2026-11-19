@@ -37,6 +37,7 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({
   const [cart, setCart] = useState<CartItem[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fetchingMenu, setFetchingMenu] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -45,10 +46,16 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({
   useEffect(() => {
     const fetchMenu = async () => {
       try {
+        setFetchingMenu(true);
         const data = await api.get('/menu');
-        setMenuItems(data);
+        if (Array.isArray(data)) {
+          setMenuItems(data);
+        }
       } catch (err: any) {
         console.error('Failed to fetch menu items:', err.message);
+        setError(err.message || 'Failed to load menu items');
+      } finally {
+        setFetchingMenu(false);
       }
     };
     fetchMenu();
@@ -209,7 +216,12 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({
 
             {/* Menu Items List */}
             <div className="flex-1 overflow-y-auto min-h-0 border border-slate-200 rounded-xl divide-y divide-slate-100 bg-white">
-              {filteredItems.length === 0 ? (
+              {fetchingMenu ? (
+                <div className="flex flex-col items-center justify-center py-16 gap-2 text-slate-400 text-xs">
+                  <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-800 rounded-full animate-spin" />
+                  <span>Loading menu items...</span>
+                </div>
+              ) : filteredItems.length === 0 ? (
                 <div className="text-center py-16 text-slate-400 text-xs">
                   {isSearching ? `No items matching "${searchQuery}"` : 'No items in this category.'}
                 </div>

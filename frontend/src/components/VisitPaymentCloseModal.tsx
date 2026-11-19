@@ -71,7 +71,7 @@ export const VisitPaymentCloseModal: React.FC<VisitPaymentCloseModalProps> = ({
         paymentAmount: numAmount,
         paymentMethod: numAmount > 0 ? paymentMethod : undefined,
         notes: remainingUdhar > 0
-          ? `Partial payment (₹${numAmount.toFixed(2)}); remaining ₹${remainingUdhar.toFixed(2)} recorded to Udhar on ${todayDateStr}`
+          ? `Partial payment (₹${numAmount.toFixed(2)}); remaining ₹${remainingUdhar.toFixed(2)} charged to credit account on ${todayDateStr}`
           : 'Full payment'
       });
 
@@ -192,7 +192,7 @@ export const VisitPaymentCloseModal: React.FC<VisitPaymentCloseModalProps> = ({
                 </div>
                 {remainingUdhar > 0 ? (
                   <div className="flex justify-between text-rose-700 font-bold pt-1.5 border-t border-slate-200">
-                    <span>Added to Udhar:</span>
+                    <span>Balance on Account:</span>
                     <span>+₹{remainingUdhar.toFixed(2)}</span>
                   </div>
                 ) : (
@@ -270,7 +270,7 @@ export const VisitPaymentCloseModal: React.FC<VisitPaymentCloseModalProps> = ({
                   <span>
                     {numAmount > 0
                       ? `Pay ₹${numAmount.toFixed(2)} & Close Visit`
-                      : `Add ₹${visitTotal.toFixed(2)} to Udhar & Close`}
+                      : `Charge ₹${visitTotal.toFixed(2)} to Account & Close`}
                   </span>
                 </>
               )}

@@ -1053,7 +1053,7 @@ function CustomerPageContent() {
                     <div>
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider block font-mono">
-                          Total Unpaid (Udhar)
+                          Outstanding Balance
                         </span>
                         <button
                           type="button"
@@ -1656,7 +1656,7 @@ function CustomerPageContent() {
                                 <span>✓ Visit Closed at {new Date(selectedVisit.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 {selectedVisitBalanceDue > 0 ? (
                                   <span className="text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
-                                    Unpaid ₹{selectedVisitBalanceDue.toFixed(2)} recorded in Total Unpaid (Udhar)
+                                    Unpaid ₹{selectedVisitBalanceDue.toFixed(2)} recorded to Outstanding Balance
                                   </span>
                                 ) : (
                                   <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
@@ -1859,7 +1859,7 @@ function CustomerPageContent() {
                           Past Session Archive (Pre-Cutover History)
                         </h3>
                         <p className="text-xs text-purple-800/80 mt-0.5 max-w-xl">
-                          All historical sessions imported from the original Rebound system with itemized orders, tables played, and payments. Any unpaid balances were carried forward into <strong>Total Unpaid (Udhar)</strong>.
+                          All historical sessions imported from the original Rebound system with itemized orders, tables played, and payments. Any unpaid balances were carried forward into <strong>Outstanding Balance</strong>.
                         </p>
                       </div>
                     </div>
@@ -1946,7 +1946,7 @@ function CustomerPageContent() {
                                       </span>
                                     ) : ls.balanceDue > 0 ? (
                                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 font-mono">
-                                        Unpaid (In Udhar)
+                                        Unpaid (On Account)
                                       </span>
                                     ) : (
                                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 font-mono">
@@ -2260,7 +2260,7 @@ function CustomerPageContent() {
             id: customerData.customer.id,
             name: customerData.customer.name,
             phone: customerData.customer.phone,
-            currentUdharDue: customerData.customer.currentUdharDue,
+            currentCreditDue: customerData.customer.currentCreditDue ?? customerData.customer.currentUdharDue,
           }}
           onClose={() => setShowSettleModal(false)}
           onSuccess={async () => {

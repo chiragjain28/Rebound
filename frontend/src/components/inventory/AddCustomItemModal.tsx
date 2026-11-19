@@ -17,9 +17,6 @@ export const AddCustomItemModal: React.FC<AddCustomItemModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [category, setCategory] = useState<'Cafe' | 'Club'>(defaultCategory);
-  const [subCategory, setSubCategory] = useState(
-    defaultCategory === 'Club' ? 'Cigarettes' : 'Food & Snacks'
-  );
   const [unit, setUnit] = useState('pieces');
   const [piecesPerBox, setPiecesPerBox] = useState('10');
   const [currentStock, setCurrentStock] = useState('0');
@@ -42,7 +39,6 @@ export const AddCustomItemModal: React.FC<AddCustomItemModalProps> = ({
       await api.post('/inventory', {
         name: name.trim(),
         category,
-        subCategory: subCategory.trim() || undefined,
         unit: unit.trim() || 'pieces',
         piecesPerBox: parseInt(piecesPerBox) || 1,
         currentStock: parseInt(currentStock) || 0,
@@ -99,7 +95,6 @@ export const AddCustomItemModal: React.FC<AddCustomItemModalProps> = ({
                 type="button"
                 onClick={() => {
                   setCategory('Club');
-                  setSubCategory('Cigarettes');
                   setPiecesPerBox('10');
                 }}
                 className={`p-3 rounded-2xl border text-left transition-all ${
@@ -116,7 +111,6 @@ export const AddCustomItemModal: React.FC<AddCustomItemModalProps> = ({
                 type="button"
                 onClick={() => {
                   setCategory('Cafe');
-                  setSubCategory('Cold Drinks');
                   setPiecesPerBox('1');
                 }}
                 className={`p-3 rounded-2xl border text-left transition-all ${
@@ -146,32 +140,18 @@ export const AddCustomItemModal: React.FC<AddCustomItemModalProps> = ({
             />
           </div>
 
-          {/* Sub-category & Unit */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
-                Sub Category
-              </label>
-              <input
-                type="text"
-                value={subCategory}
-                onChange={e => setSubCategory(e.target.value)}
-                placeholder="e.g. Cigarettes, Cold Drinks"
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
-                Unit of Measure
-              </label>
-              <input
-                type="text"
-                value={unit}
-                onChange={e => setUnit(e.target.value)}
-                placeholder="pieces, cans, packets"
-                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+          {/* Unit of Measure */}
+          <div>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
+              Unit of Measure
+            </label>
+            <input
+              type="text"
+              value={unit}
+              onChange={e => setUnit(e.target.value)}
+              placeholder="pieces, cans, packets"
+              className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
           {/* Pieces Per Box (Crucial for Cigarettes!) & Min Alert */}

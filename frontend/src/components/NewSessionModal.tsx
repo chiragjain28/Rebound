@@ -378,7 +378,7 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
                   <div className="text-xs text-amber-800 bg-amber-50 py-2 px-3 rounded-xl border border-amber-200 leading-tight font-medium flex items-center gap-2">
                     <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                     <span>
-                      <b>{matchingUdhar.customerName}</b> has an outstanding debt of <b>₹{matchingUdhar.totalOutstanding.toFixed(2)}</b>.
+                      <b>{matchingUdhar.customerName}</b> has an outstanding balance of <b>₹{matchingUdhar.totalOutstanding.toFixed(2)}</b>.
                     </span>
                   </div>
                 )}

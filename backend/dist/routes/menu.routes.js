@@ -8,6 +8,9 @@ const router = (0, express_1.Router)();
 router.get('/', auth_1.authenticateToken, async (req, res) => {
     try {
         const menuItems = await index_1.prisma.menuItem.findMany({
+            where: {
+                NOT: { isActive: false }
+            },
             orderBy: { name: 'asc' }
         });
         res.json(menuItems);
@@ -86,7 +89,7 @@ router.put('/:id', auth_1.authenticateToken, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
-// Delete a menu item (only if not used in orders)
+// Delete a menu item (safely handles both unused items and items with historical orders)
 router.delete('/:id', auth_1.authenticateToken, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
@@ -95,17 +98,37 @@ router.delete('/:id', auth_1.authenticateToken, async (req, res) => {
         }
         const existing = await index_1.prisma.menuItem.findUnique({
             where: { id },
-            include: { orders: { take: 1 } }
+            include: {
+                orders: {
+                    include: {
+                        visit: {
+                            select: { status: true }
+                        }
+                    }
+                }
+            }
         });
         if (!existing) {
             return res.status(404).json({ error: 'Menu item not found' });
         }
-        if (existing.orders.length > 0) {
+        // Safety check: Cannot delete an item if it is in an ongoing active visit order
+        const hasActiveOrder = existing.orders.some(o => o.visit?.status === 'active');
+        if (hasActiveOrder) {
             return res.status(400).json({
-                error: 'Cannot delete this item because it has existing order records in past sessions.'
+                error: `Cannot delete "${existing.name}" because it is currently included in an ongoing active visit order. Please close or adjust that visit first.`
             });
         }
-        await index_1.prisma.menuItem.delete({ where: { id } });
+        if (existing.orders.length > 0) {
+            // Soft-delete: mark inactive to safely preserve past financial session records and reports
+            await index_1.prisma.menuItem.update({
+                where: { id },
+                data: { isActive: false }
+            });
+        }
+        else {
+            // Item has zero orders, safe to permanently remove
+            await index_1.prisma.menuItem.delete({ where: { id } });
+        }
         res.json({ message: `Menu item "${existing.name}" deleted successfully` });
     }
     catch (error) {

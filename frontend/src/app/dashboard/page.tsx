@@ -441,7 +441,7 @@ export default function DashboardPage() {
                                     <p className="font-bold text-xs text-slate-900">{c.name}</p>
                                     {hasDebt && (
                                       <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-rose-50 text-rose-700 border border-rose-200 font-mono">
-                                        Udhar: ₹{c.currentCreditDue.toFixed(0)}
+                                        Due: ₹{c.currentCreditDue.toFixed(0)}
                                       </span>
                                     )}
                                   </div>
@@ -547,7 +547,7 @@ export default function DashboardPage() {
 
                         {play.currentCreditDue > 0 && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 font-mono">
-                            Prior Udhar: ₹{play.currentCreditDue}
+                            Outstanding Due: ₹{play.currentCreditDue}
                           </span>
                         )}
                       </div>
@@ -641,16 +641,29 @@ export default function DashboardPage() {
                 const isSnooker = group.gameType === 'MidSnooker';
                 const isPS4 = group.gameType === 'PS4';
 
+                // Human-readable game label with clean spacing
+                const gameLabel = group.gameType === 'MidSnooker'
+                  ? 'Mid Snooker'
+                  : group.gameType === 'PS4'
+                  ? 'PlayStation 4'
+                  : group.gameType;
+
+                // Rate calculation across tables in this group
+                const tableRates = group.tables.map(t => t.ratePerHour || group.ratePerHour).filter(Boolean);
+                const minRate = tableRates.length ? Math.min(...tableRates) : group.ratePerHour;
+                const maxRate = tableRates.length ? Math.max(...tableRates) : group.ratePerHour;
+                const rateDisplay = minRate === maxRate ? `₹${minRate}/hr` : `₹${minRate} - ₹${maxRate}/hr`;
+
                 return (
                   <div
                     key={group.gameType}
                     className="bg-white rounded-2xl border border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden"
                   >
                     {/* Game Type Header */}
-                    <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                    <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-white flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm border shadow-2xs ${
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm border shadow-2xs shrink-0 ${
                             isSnooker
                               ? 'bg-purple-50 text-purple-700 border-purple-200'
                               : isPS4
@@ -666,36 +679,35 @@ export default function DashboardPage() {
                             <CircleDot className="w-5 h-5" />
                           )}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-base font-extrabold text-slate-900 font-display">
-                              {group.gameType}
-                            </h4>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-mono">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-base font-extrabold text-slate-900 font-display truncate">
+                            {gameLabel}
+                          </h4>
+                          <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-slate-500 font-medium mt-0.5">
+                            <span className="font-bold text-slate-700 font-mono">{rateDisplay}</span>
+                            <span className="text-slate-300">•</span>
+                            <span className="whitespace-nowrap">
                               {totalCount} {totalCount === 1 ? (isPS4 ? 'Station' : 'Table') : (isPS4 ? 'Stations' : 'Tables')}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-500 font-mono font-medium">
-                            ₹{group.ratePerHour}/hr
-                          </p>
                         </div>
                       </div>
 
                       {/* Availability status badge */}
-                      <div>
+                      <div className="shrink-0 pt-0.5">
                         {availableCount === totalCount ? (
-                          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5 font-mono">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/90 flex items-center gap-1.5 whitespace-nowrap shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
                             All Free ({totalCount})
                           </span>
                         ) : availableCount === 0 ? (
-                          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1.5 font-mono">
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200/90 flex items-center gap-1.5 whitespace-nowrap shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>
                             All Full ({totalCount})
                           </span>
                         ) : (
-                          <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5 font-mono">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200/90 flex items-center gap-1.5 whitespace-nowrap shadow-2xs">
+                            <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
                             {availableCount}/{totalCount} Free
                           </span>
                         )}
@@ -703,34 +715,62 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Tables included in this Game Type card */}
-                    <div className="p-4 space-y-2.5 flex-1 flex flex-col justify-start">
+                    <div className="p-4 space-y-3 flex-1 flex flex-col justify-start">
                       {group.tables.map((table) => {
                         const isOccupied = table.status === 'occupied';
                         const activePlay = activePlays.find((p) => p.tableId === table.id);
+                        const tableDisplayName = table.name || (isPS4 ? `Station ${table.number}` : `Table ${table.number}`);
+                        const hasCustomRate = table.ratePerHour && table.ratePerHour !== group.ratePerHour;
+                        const currentRate = table.ratePerHour || group.ratePerHour;
 
                         return (
                           <div
                             key={table.id}
-                            className={`p-3 rounded-xl border transition-all ${
+                            className={`p-3.5 rounded-xl border transition-all ${
                               isOccupied
                                 ? 'bg-blue-50/60 border-blue-200 shadow-2xs'
                                 : 'bg-slate-50/70 border-slate-200/90 hover:border-slate-300 hover:bg-slate-50'
                             }`}
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="font-extrabold text-sm text-slate-900 font-display truncate">
-                                  {table.name || (isPS4 ? `Station ${table.number}` : `Table ${table.number}`)}
+                            {/* Primary Row: Table Name & Availability Status */}
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span className="font-extrabold text-sm text-slate-900 font-display truncate" title={tableDisplayName}>
+                                  {tableDisplayName}
                                 </span>
-                                <span
-                                  className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border uppercase tracking-wider shrink-0 ${
-                                    isOccupied
-                                      ? 'bg-blue-100 text-blue-800 border-blue-200'
-                                      : 'bg-emerald-100/70 text-emerald-800 border-emerald-200'
-                                  }`}
-                                >
-                                  {isOccupied ? 'Occupied' : 'Available'}
+                                {table.name && (
+                                  <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                                    (#{table.number})
+                                  </span>
+                                )}
+                              </div>
+
+                              <span
+                                className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full border uppercase tracking-wider shrink-0 ${
+                                  isOccupied
+                                    ? 'bg-blue-100 text-blue-800 border-blue-200'
+                                    : 'bg-emerald-100/70 text-emerald-800 border-emerald-200'
+                                }`}
+                              >
+                                {isOccupied ? 'Occupied' : 'Available'}
+                              </span>
+                            </div>
+
+                            {/* Secondary Row: Rate & Action Buttons */}
+                            <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="text-xs font-bold text-slate-700 font-mono">
+                                  ₹{currentRate}/hr
                                 </span>
+                                {hasCustomRate ? (
+                                  <span className="text-[9px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.2 rounded-md shrink-0">
+                                    Custom
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 font-medium shrink-0">
+                                    Standard
+                                  </span>
+                                )}
                               </div>
 
                               <div className="flex items-center gap-1 shrink-0">
@@ -770,8 +810,8 @@ export default function DashboardPage() {
                             </div>
 
                             {/* Active play info if occupied */}
-                            {isOccupied && activePlay ? (
-                              <div className="mt-2 pt-2 border-t border-blue-100 flex items-center justify-between text-xs">
+                            {isOccupied && activePlay && (
+                              <div className="mt-2.5 pt-2 border-t border-blue-100 flex items-center justify-between text-xs">
                                 <button
                                   onClick={() =>
                                     router.push(
@@ -792,14 +832,6 @@ export default function DashboardPage() {
                                   <span>{activePlay.durationStr}</span>
                                 </div>
                               </div>
-                            ) : !isOccupied ? (
-                              <p className="mt-1 text-[11px] text-slate-400 font-medium">
-                                Ready for play
-                              </p>
-                            ) : (
-                              <p className="mt-1 text-[11px] text-slate-500 italic">
-                                Station marked occupied
-                              </p>
                             )}
                           </div>
                         );
@@ -892,7 +924,7 @@ export default function DashboardPage() {
                   disabled={renameLoading || !renameValue.trim()}
                   className="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all disabled:opacity-40 cursor-pointer"
                 >
-                  {renameLoading ? 'Saving...' : 'Save Name'}
+                  {renameLoading ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </form>

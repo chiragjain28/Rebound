@@ -211,7 +211,7 @@ export const RestockModal: React.FC<RestockModalProps> = ({
               {rows.map((row, idx) => {
                 const item = itemsMap.get(row.itemId);
                 const piecesPerBox = item?.piecesPerBox || 1;
-                const isCigarette = item?.subCategory?.toLowerCase() === 'cigarettes';
+                const isCigarette = item?.category?.toLowerCase() === 'club';
                 const boxesNum = parseFloat(row.boxes) || 0;
                 const looseNum = parseInt(row.loose) || 0;
                 const calculatedPieces = (boxesNum * piecesPerBox) + looseNum;

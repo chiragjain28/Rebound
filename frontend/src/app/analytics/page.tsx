@@ -27,6 +27,7 @@ import {
   X,
   Filter
 } from 'lucide-react';
+import { AnalyticsLineCharts, ChartDataPoint } from '../../components/analytics/AnalyticsLineCharts';
 
 interface AnalyticsData {
   range: string;
@@ -80,6 +81,15 @@ interface AnalyticsData {
     tickets: number;
     tableHours?: number;
   }[];
+  chartData?: ChartDataPoint[];
+  chartSummary?: {
+    totalSales: number;
+    snookerSales: number;
+    poolSales: number;
+    tableSales: number;
+    cafeSales: number;
+    creditSales: number;
+  };
   totalTicketsCount: number;
 }
 
@@ -88,7 +98,7 @@ export default function AnalyticsPage() {
   const router = useRouter();
 
   const [filterType, setFilterType] = useState<'preset' | 'date' | 'month'>('preset');
-  const [range, setRange] = useState<'today' | '7days' | 'month' | '30days'>('30days');
+  const [range, setRange] = useState<'today' | '7days' | 'month'>('month');
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState<string>('');
 
@@ -242,8 +252,7 @@ export default function AnalyticsPage() {
               {[
                 { id: 'today', label: 'Today' },
                 { id: '7days', label: '7 Days' },
-                { id: 'month', label: 'This Month' },
-                { id: '30days', label: 'Last 30 Days' }
+                { id: 'month', label: 'This Month' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -289,7 +298,7 @@ export default function AnalyticsPage() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setFilterType('preset');
-                      setRange('30days');
+                      setRange('month');
                       setSelectedDate('');
                       setSelectedMonth('');
                       setShowCustomPicker(false);
@@ -394,14 +403,14 @@ export default function AnalyticsPage() {
                       type="button"
                       onClick={() => {
                         setFilterType('preset');
-                        setRange('30days');
+                        setRange('month');
                         setSelectedDate('');
                         setSelectedMonth('');
                         setShowCustomPicker(false);
                       }}
                       className="text-[11px] font-bold text-rose-600 hover:text-rose-700"
                     >
-                      Clear &amp; Reset to 30 Days
+                      Clear &amp; Reset to This Month
                     </button>
                   </div>
                 )}
@@ -424,37 +433,49 @@ export default function AnalyticsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               
               {/* Total Sales Billed */}
-              <div className="glass-card p-5 border border-slate-200 bg-white shadow-2xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Sales Billed</span>
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <IndianRupee className="w-4 h-4" />
+              <div className="glass-card p-5 border border-slate-200 bg-white shadow-2xs flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Sales Billed</span>
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                      <IndianRupee className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <span className="text-2xl font-black text-slate-900 font-display">
+                      ₹{data.totalBilled.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </span>
+                    <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                      Total consumed (Tables + Cafe)
+                    </p>
                   </div>
                 </div>
-                <div className="mt-3">
-                  <span className="text-2xl font-black text-slate-900 font-display">
-                    ₹{data.totalBilled.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                  </span>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Across {data.totalTicketsCount} total visits &amp; sales</p>
-                </div>
+                <p className="text-[10px] text-slate-400 mt-2 font-mono">
+                  {data.totalTicketsCount} total visits &amp; sales
+                </p>
               </div>
 
               {/* Collected Cash / UPI */}
-              <div className="glass-card p-5 border border-slate-200 bg-white shadow-2xs">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Collected Cash / UPI</span>
-                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                    <Receipt className="w-4 h-4" />
+              <div className="glass-card p-5 border border-slate-200 bg-white shadow-2xs flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Collected Cash / UPI</span>
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <Receipt className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <span className="text-2xl font-black text-emerald-700 font-display">
+                      ₹{data.totalCollected.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                    </span>
+                    <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                      Actual cash &amp; bank received
+                    </p>
                   </div>
                 </div>
-                <div className="mt-3">
-                  <span className="text-2xl font-black text-emerald-700 font-display">
-                    ₹{data.totalCollected.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                  </span>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    UPI: ₹{data.paymentSplit.upi.toLocaleString()} • Cash: ₹{data.paymentSplit.cash.toLocaleString()}
-                  </p>
-                </div>
+                <p className="text-[10px] text-slate-400 mt-2">
+                  UPI: <strong className="text-slate-700">₹{data.paymentSplit.upi.toLocaleString()}</strong> • Cash: <strong className="text-slate-700">₹{data.paymentSplit.cash.toLocaleString()}</strong>
+                </p>
               </div>
 
               {/* Active Customers */}
@@ -899,6 +920,17 @@ export default function AnalyticsPage() {
               </div>
 
             </div>
+
+            {/* Visual Line Graphs for Overall Sales, Snooker & Pool, Cafe, and Credits */}
+            <AnalyticsLineCharts
+              data={data}
+              onSelectDate={(isoDate) => {
+                setSelectedDate(isoDate);
+                setSelectedMonth('');
+                setFilterType('date');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
           </>
         )}
       </div>

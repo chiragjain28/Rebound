@@ -23,6 +23,8 @@ const credit_routes_1 = __importDefault(require("./routes/credit.routes"));
 const udhar_routes_1 = __importDefault(require("./routes/udhar.routes"));
 const table_routes_1 = __importDefault(require("./routes/table.routes"));
 const customer_routes_1 = __importDefault(require("./routes/customer.routes"));
+const inventory_routes_1 = __importDefault(require("./routes/inventory.routes"));
+const nightlyAutoClose_1 = require("./jobs/nightlyAutoClose");
 // Load .env.local first (dev overrides), then fallback to .env (prod defaults)
 dotenv_1.default.config({ path: '.env.local', override: true });
 if (process.env.DATABASE_URL?.includes('<your-dev-project>')) {
@@ -84,14 +86,24 @@ app.use('/api/credits', credit_routes_1.default);
 app.use('/api/udhar', udhar_routes_1.default);
 app.use('/api/tables', table_routes_1.default);
 app.use('/api/customers', customer_routes_1.default);
+app.use('/api/inventory', inventory_routes_1.default);
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'healthy', time: new Date() });
 });
 // Initialize WebSocket server
 (0, websocket_1.initWebSocket)(server);
-server.listen(port, () => {
+server.listen(port, async () => {
     console.log(`Rebound ERP Backend listening on http://localhost:${port}`);
+    try {
+        await exports.prisma.$queryRaw `SELECT 1`;
+        console.log('[DB] Local PostgreSQL connected successfully.');
+        (0, nightlyAutoClose_1.initNightlyAutoCloseJob)();
+    }
+    catch (err) {
+        console.warn('[DB] Warning: Cannot reach database server (' + (err.message || err) + ').');
+        console.warn("[DB] Ensure local PostgreSQL is running (run 'npm run db:start').");
+    }
 });
 // Graceful shutdown handling
 const gracefulShutdown = async (signal) => {

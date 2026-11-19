@@ -691,7 +691,7 @@ export default function SessionDetailsPage() {
       mutate();
       setShowUdharForm(false);
     } catch (err: any) {
-      alert(err.message || 'Failed to log udhar');
+      alert(err.message || 'Failed to record credit');
     } finally {
       setUdharLoading(false);
     }

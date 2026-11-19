@@ -41,14 +41,10 @@ export function initNightlyAutoCloseJob() {
   // 1. Startup Catch-Up Check:
   // If the server was offline at 02:00 AM, or there are stale active visits started before the latest 2:00 AM cutoff, close them now!
   const last2AM = getPrevious2AM();
-  console.log(`[JOB] Running startup catch-up for active visits started on or before ${last2AM.toLocaleString('en-IN')}`);
-
-  runNightlyAutoClose(last2AM)
+  runNightlyAutoClose(last2AM, { silentIfEmpty: true })
     .then((res) => {
       if (res.closedCount > 0) {
         console.log(`[JOB] Startup catch-up auto-closed ${res.closedCount} leftover active visit(s).`);
-      } else {
-        console.log('[JOB] Startup catch-up: All visits clean, no stale active visits found.');
       }
     })
     .catch((err) => {
@@ -59,12 +55,12 @@ export function initNightlyAutoCloseJob() {
   function scheduleNextRun() {
     const nextRun = getNext2AM();
     const delay = nextRun.getTime() - Date.now();
-    console.log(`[JOB] Next 02:00 AM Auto-Close scheduled for ${nextRun.toLocaleString('en-IN')} (in ${(delay / 3600000).toFixed(2)} hours)`);
+    console.log(`[JOB] Next 02:00 AM Auto-Close scheduled for ${nextRun.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (in ${(delay / 3600000).toFixed(2)} hours)`);
 
     setTimeout(async () => {
       try {
         console.log(`[JOB] 02:00 AM Strike! Executing nightly auto-close...`);
-        await runNightlyAutoClose(nextRun);
+        await runNightlyAutoClose(nextRun, { silentIfEmpty: false });
       } catch (err) {
         console.error('[JOB] Error running scheduled 02:00 AM auto-close:', err);
       } finally {
@@ -82,7 +78,7 @@ export function initNightlyAutoCloseJob() {
   setInterval(async () => {
     try {
       const prev2AM = getPrevious2AM();
-      await runNightlyAutoClose(prev2AM);
+      await runNightlyAutoClose(prev2AM, { silentIfEmpty: true });
     } catch {
       // Quiet background check
     }

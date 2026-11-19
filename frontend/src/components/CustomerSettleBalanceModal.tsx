@@ -18,7 +18,8 @@ interface CustomerSettleBalanceModalProps {
     id: number | string;
     name: string;
     phone: string;
-    currentUdharDue: number;
+    currentCreditDue?: number;
+    currentUdharDue?: number;
   };
   onClose: () => void;
   onSuccess: () => void;
@@ -29,7 +30,7 @@ export const CustomerSettleBalanceModal: React.FC<CustomerSettleBalanceModalProp
   onClose,
   onSuccess,
 }) => {
-  const totalDue = Math.max(0, customer.currentUdharDue);
+  const totalDue = Math.max(0, customer.currentCreditDue ?? customer.currentUdharDue ?? 0);
   const [mode, setMode] = useState<'full' | 'partial'>('full');
   const [amountInput, setAmountInput] = useState<string>(
     Number.isInteger(totalDue) ? totalDue.toString() : totalDue.toFixed(2)
@@ -137,7 +138,7 @@ export const CustomerSettleBalanceModal: React.FC<CustomerSettleBalanceModalProp
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
             <div>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">
-                Total Outstanding Udhar
+                Total Outstanding Balance
               </span>
               <span className="text-2xl font-black text-rose-700 font-display mt-0.5 block">
                 ₹{totalDue.toFixed(2)}

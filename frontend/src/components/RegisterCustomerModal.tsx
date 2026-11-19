@@ -134,7 +134,7 @@ export const RegisterCustomerModal: React.FC<RegisterCustomerModalProps> = ({
                 Register New Customer
               </h2>
               <p className="text-xs text-slate-500 font-medium">
-                Create permanent profile for orders, tables & udhar
+                Create permanent profile for visits, gameplay &amp; credit account
               </p>
             </div>
           </div>
@@ -241,7 +241,7 @@ export const RegisterCustomerModal: React.FC<RegisterCustomerModalProps> = ({
               )}
             </div>
             <p className="text-[10px] text-slate-400 mt-1 font-medium">
-              Phone number is uniquely tied to this customer&apos;s lifetime visits & udhar balance.
+              Phone number is uniquely tied to this customer&apos;s lifetime visits &amp; credit account.
             </p>
           </div>
 

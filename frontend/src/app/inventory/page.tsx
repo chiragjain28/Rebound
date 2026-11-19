@@ -33,6 +33,7 @@ interface InventoryItem extends InventoryItemSummary {
   minStockAlert: number;
   boxesCount: number;
   looseCount: number;
+  isUncounted: boolean;
   isLowStock: boolean;
   isOutOfStock: boolean;
   isActive: boolean;
@@ -50,6 +51,7 @@ interface InventoryStats {
   clubItemsCount: number;
   lowStockCount: number;
   outOfStockCount: number;
+  uncountedCount: number;
   totalValuation: number;
   cigarettes: {
     totalLoose: number;
@@ -69,7 +71,6 @@ export default function InventoryPage() {
 
   // Filters
   const [activeCategory, setActiveCategory] = useState<'All' | 'Cafe' | 'Club'>('Club');
-  const [subCategoryFilter, setSubCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'low_stock' | 'out_of_stock'>('all');
 
@@ -118,18 +119,11 @@ export default function InventoryPage() {
     }
   };
 
-  // Filter items based on Category, Sub-category, Status and Search
+  // Filter items based on Category, Status and Search
   const filteredItems = items.filter(item => {
     // Category Filter
     if (activeCategory !== 'All' && item.category.toLowerCase() !== activeCategory.toLowerCase()) {
       return false;
-    }
-
-    // Sub-Category Filter
-    if (subCategoryFilter !== 'all') {
-      if ((item.subCategory || '').toLowerCase() !== subCategoryFilter.toLowerCase()) {
-        return false;
-      }
     }
 
     // Status Filter
@@ -140,22 +134,11 @@ export default function InventoryPage() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchName = item.name.toLowerCase().includes(q);
-      const matchSub = (item.subCategory || '').toLowerCase().includes(q);
-      if (!matchName && !matchSub) return false;
+      if (!matchName) return false;
     }
 
     return true;
   });
-
-  // Unique subcategories for active category
-  const availableSubCategories = Array.from(
-    new Set(
-      items
-        .filter(i => activeCategory === 'All' || i.category.toLowerCase() === activeCategory.toLowerCase())
-        .map(i => i.subCategory)
-        .filter(Boolean) as string[]
-    )
-  );
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
@@ -290,13 +273,19 @@ export default function InventoryPage() {
             </div>
             <div>
               <div className="flex items-baseline gap-2">
-                <span className={`text-2xl font-black font-display ${stats?.lowStockCount ? 'text-amber-600' : 'text-slate-900'}`}>
-                  {stats?.lowStockCount || 0}
+                <span className={`text-2xl font-black font-display ${(stats?.lowStockCount || stats?.outOfStockCount) ? 'text-amber-600' : 'text-slate-900'}`}>
+                  {(stats?.lowStockCount || 0) + (stats?.outOfStockCount || 0)}
                 </span>
-                <span className="text-xs text-slate-500 font-semibold">low stock items</span>
+                <span className="text-xs text-slate-500 font-semibold">active alerts</span>
               </div>
-              <p className="text-xs text-amber-700 font-semibold mt-1">
-                {stats?.outOfStockCount || 0} items completely out of stock
+              <p className="text-xs font-semibold mt-1">
+                {(stats?.outOfStockCount || 0) > 0 ? (
+                  <span className="text-rose-600 font-bold">{stats?.outOfStockCount} out of stock</span>
+                ) : (stats?.uncountedCount || 0) > 0 ? (
+                  <span className="text-slate-500">{stats?.uncountedCount} items awaiting stock count</span>
+                ) : (
+                  <span className="text-emerald-600 font-bold">All items in stock</span>
+                )}
               </p>
             </div>
           </div>
@@ -325,42 +314,52 @@ export default function InventoryPage() {
         </div>
 
         {/* Primary Category Selector & Filters */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-2xs space-y-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
           
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Two Primary Categories (User Requirement: Cafe & Club) */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-start">
-              {[
-                { id: 'Club', label: '🎱 Club Inventory', count: stats?.clubItemsCount },
-                { id: 'Cafe', label: '☕ Cafe Inventory', count: stats?.cafeItemsCount },
-                { id: 'All', label: 'All Items', count: stats?.totalItems }
-              ].map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => {
-                    setActiveCategory(cat.id as any);
-                    setSubCategoryFilter('all');
-                  }}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                    activeCategory === cat.id
-                      ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <span>{cat.label}</span>
-                  {cat.count !== undefined && (
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                      activeCategory === cat.id ? 'bg-slate-100 text-slate-700' : 'bg-slate-200/60 text-slate-500'
-                    }`}>
-                      {cat.count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
+          {/* Two Primary Categories: Club & Cafe */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 self-start">
+            {[
+              { id: 'Club', label: '🎱 Club Inventory', count: stats?.clubItemsCount },
+              { id: 'Cafe', label: '☕ Cafe Inventory', count: stats?.cafeItemsCount },
+              { id: 'All', label: 'All Items', count: stats?.totalItems }
+            ].map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategory(cat.id as any)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  activeCategory === cat.id
+                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>{cat.label}</span>
+                {cat.count !== undefined && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                    activeCategory === cat.id ? 'bg-slate-100 text-slate-700' : 'bg-slate-200/60 text-slate-500'
+                  }`}>
+                    {cat.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 w-full md:w-auto">
+            {/* Quick Low Stock Toggle */}
+            <button
+              onClick={() => setStatusFilter(prev => prev === 'low_stock' ? 'all' : 'low_stock')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                statusFilter === 'low_stock'
+                  ? 'bg-amber-500 text-white shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
+              }`}
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>Low Stock Alerts</span>
+            </button>
 
             {/* Search Input */}
-            <div className="relative w-full sm:w-72">
+            <div className="relative w-full sm:w-64">
               <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
@@ -378,53 +377,6 @@ export default function InventoryPage() {
                 </button>
               )}
             </div>
-          </div>
-
-          {/* Subcategory Pills & Status Quick Toggles */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1">
-              <Filter className="w-3 h-3" /> Subcategory:
-            </span>
-
-            <button
-              onClick={() => setSubCategoryFilter('all')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                subCategoryFilter === 'all'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              All
-            </button>
-
-            {availableSubCategories.map(sub => (
-              <button
-                key={sub}
-                onClick={() => setSubCategoryFilter(sub)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                  subCategoryFilter === sub
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {sub}
-              </button>
-            ))}
-
-            <div className="h-4 w-[1px] bg-slate-200 mx-2" />
-
-            {/* Quick Low Stock Toggle */}
-            <button
-              onClick={() => setStatusFilter(prev => prev === 'low_stock' ? 'all' : 'low_stock')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                statusFilter === 'low_stock'
-                  ? 'bg-amber-500 text-white shadow-xs'
-                  : 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200'
-              }`}
-            >
-              <AlertTriangle className="w-3 h-3" />
-              <span>Low Stock Alerts</span>
-            </button>
           </div>
         </div>
 
@@ -450,7 +402,6 @@ export default function InventoryPage() {
                   <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     <th className="py-3 px-4">Item Name</th>
                     <th className="py-3 px-3">Category</th>
-                    <th className="py-3 px-3">Subcategory</th>
                     <th className="py-3 px-4 text-center">Current Stock</th>
                     <th className="py-3 px-3 text-center">Status</th>
                     <th className="py-3 px-3 text-right">Retail Price</th>
@@ -459,7 +410,6 @@ export default function InventoryPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {filteredItems.map(item => {
-                    const isCigarette = item.subCategory?.toLowerCase() === 'cigarettes';
                     const hasBoxConfig = item.piecesPerBox > 1;
 
                     return (
@@ -494,30 +444,34 @@ export default function InventoryPage() {
                           </span>
                         </td>
 
-                        {/* SubCategory */}
-                        <td className="py-3 px-3">
-                          <span className="text-slate-600 font-semibold">
-                            {item.subCategory || 'General'}
-                          </span>
-                        </td>
-
                         {/* Current Stock with Box Breakdown */}
                         <td className="py-3 px-4 text-center">
-                          <div className="flex flex-col items-center">
-                            <span className="text-sm font-black text-slate-900 font-display">
-                              {item.currentStock} {item.unit}
-                            </span>
-                            {hasBoxConfig && (
-                              <span className="text-[11px] font-semibold text-slate-500 font-mono">
-                                {item.boxesCount} boxes + {item.looseCount} loose
+                          {item.isUncounted ? (
+                            <div className="flex flex-col items-center">
+                              <span className="text-xs font-bold text-slate-400 font-mono">—</span>
+                              <span className="text-[10px] text-slate-400 font-medium">Not Counted Yet</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center">
+                              <span className="text-sm font-black text-slate-900 font-display">
+                                {item.currentStock} {item.unit}
                               </span>
-                            )}
-                          </div>
+                              {hasBoxConfig && (
+                                <span className="text-[11px] font-semibold text-slate-500 font-mono">
+                                  {item.boxesCount} boxes + {item.looseCount} loose
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
 
                         {/* Status Badge */}
                         <td className="py-3 px-3 text-center">
-                          {item.isOutOfStock ? (
+                          {item.isUncounted ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                              Setup Stock
+                            </span>
+                          ) : item.isOutOfStock ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
                               <XCircle className="w-3 h-3" /> Out of Stock
                             </span>
@@ -540,16 +494,20 @@ export default function InventoryPage() {
                         {/* Actions */}
                         <td className="py-3 px-4 text-right">
                           <div className="inline-flex items-center gap-1.5">
-                            {/* Quick Restock */}
+                            {/* Quick Restock / Enter Stock */}
                             <button
                               onClick={() => {
                                 setPreselectedRestockId(item.id);
                                 setShowRestockModal(true);
                               }}
-                              className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-[11px] transition-colors"
-                              title="Restock this item"
+                              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-colors ${
+                                item.isUncounted
+                                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-2xs'
+                                  : 'bg-blue-50 hover:bg-blue-100 text-blue-700'
+                              }`}
+                              title={item.isUncounted ? 'Enter initial stock for this item' : 'Restock this item'}
                             >
-                              + Restock
+                              {item.isUncounted ? '+ Add Stock' : '+ Restock'}
                             </button>
 
                             {/* Adjust Physical Count */}

@@ -87,7 +87,7 @@ function CreditsPageContent() {
     id: number;
     name: string;
     phone: string;
-    currentUdharDue: number;
+    currentCreditDue: number;
   } | null>(null);
 
   // Load analytics
@@ -156,10 +156,10 @@ function CreditsPageContent() {
               </div>
               <div>
                 <h1 className="text-xl sm:text-2xl font-black text-slate-900 font-display tracking-tight">
-                  Credits & Debtor Analytics
+                  Customer Credit &amp; Receivables
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Lounge-wide Udhar ledger, monthly recovery trends, and highest outstanding balances
+                  Lounge-wide credit accounts, monthly recovery trends, and outstanding receivables
                 </p>
               </div>
             </div>
@@ -193,7 +193,7 @@ function CreditsPageContent() {
             <div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-mono">
-                  Total Outstanding Udhar
+                  Total Outstanding Receivables
                 </span>
                 <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
               </div>
@@ -202,7 +202,7 @@ function CreditsPageContent() {
               </span>
             </div>
             <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
-              <span>Across active debtors</span>
+              <span>Across open credit accounts</span>
               <span className="font-bold font-mono text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">
                 {analytics?.summary.debtorsCount || 0} customers
               </span>
@@ -281,7 +281,7 @@ function CreditsPageContent() {
                 <span>Month-Wise Credit Analytics on Rebound</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Monthly breakdown of credit incurred, debt settled, and remaining unpaid Udhar
+                Monthly breakdown of credit extended, debt settled, and remaining unpaid receivables
               </p>
             </div>
             <span className="text-xs font-mono font-bold text-slate-400 self-start sm:self-auto">
@@ -408,7 +408,7 @@ function CreditsPageContent() {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900 font-display">
-                  Active Creditors & Debtors Ranking
+                  Customer Outstanding Balances Ranking
                 </h2>
                 <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-200 text-xs font-mono font-bold">
                   Highest Credit First
@@ -426,7 +426,7 @@ function CreditsPageContent() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search debtor name or phone..."
+                placeholder="Search customer name or phone..."
                 className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 text-xs focus:outline-hidden focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-colors bg-slate-50"
               />
               {search && (
@@ -450,9 +450,9 @@ function CreditsPageContent() {
           ) : debtors.length === 0 ? (
             <div className="py-16 text-center text-slate-400 text-xs bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
               {search ? (
-                <>No debtor accounts matched &ldquo;<strong>{search}</strong>&rdquo;.</>
+                <>No customer accounts matched &ldquo;<strong>{search}</strong>&rdquo;.</>
               ) : (
-                <>🎉 Zero outstanding debtors! All customer accounts are completely clear.</>
+                <>🎉 Zero outstanding balances! All customer accounts are completely clear.</>
               )}
             </div>
           ) : (
@@ -525,7 +525,7 @@ function CreditsPageContent() {
                             id: debtor.customerId,
                             name: debtor.customerName,
                             phone: debtor.customerPhone,
-                            currentUdharDue: debtor.totalCreditDue
+                            currentCreditDue: debtor.totalCreditDue
                           })}
                           className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
                         >
@@ -554,7 +554,7 @@ function CreditsPageContent() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between pt-4 border-t border-slate-100 text-xs">
               <span className="text-slate-500 font-medium">
-                Showing Page <strong className="text-slate-900">{page}</strong> of <strong className="text-slate-900">{totalPages}</strong> ({totalDebtors} debtors)
+                Showing Page <strong className="text-slate-900">{page}</strong> of <strong className="text-slate-900">{totalPages}</strong> ({totalDebtors} accounts)
               </span>
 
               <div className="flex items-center gap-1.5">

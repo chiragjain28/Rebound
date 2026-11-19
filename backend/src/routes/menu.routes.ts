@@ -7,12 +7,9 @@ const router = Router();
 // Get all menu items
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const menuItems = await (prisma.menuItem as any).findMany({
+    const menuItems = await prisma.menuItem.findMany({
       where: {
-        OR: [
-          { isActive: true },
-          { isActive: null }
-        ]
+        NOT: { isActive: false }
       },
       orderBy: { name: 'asc' }
     });
