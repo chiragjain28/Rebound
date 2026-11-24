@@ -9,10 +9,14 @@ import { RecordPaymentModal } from '../../components/RecordPaymentModal';
 import { RegisterCustomerModal } from '../../components/RegisterCustomerModal';
 import { VisitPaymentCloseModal } from '../../components/VisitPaymentCloseModal';
 import { CustomerSettleBalanceModal } from '../../components/CustomerSettleBalanceModal';
+import { TransferTableModal } from '../../components/TransferTableModal';
+import { SplitTableModal } from '../../components/SplitTableModal';
+import { RegisterWalkinModal } from '../../components/RegisterWalkinModal';
 import { 
   Users, 
   Search, 
   UserPlus, 
+  UserCheck,
   Phone, 
   Calendar, 
   Clock, 
@@ -227,17 +231,21 @@ function CustomerPageContent() {
   const [showAssignTableModal, setShowAssignTableModal] = useState(false);
   const [showSettleModal, setShowSettleModal] = useState(false);
   const [showUdharBreakdown, setShowUdharBreakdown] = useState(false);
+  const [showRegisterWalkinModal, setShowRegisterWalkinModal] = useState(false);
+  const [registerWalkinTarget, setRegisterWalkinTarget] = useState<any | null>(null);
   const [paymentCloseModal, setPaymentCloseModal] = useState<{
     open: boolean;
-    mode: 'full' | 'partial';
+    mode: 'all' | 'visit' | 'full' | 'partial';
     visitId: string;
     visitTotal: number;
+    previousCreditDue?: number;
   } | null>(null);
 
   // Available floor tables for "+ Assign Table" modal
   const [floorTables, setFloorTables] = useState<any[]>([]);
   const [loadingTables, setLoadingTables] = useState(false);
   const [assigningTableId, setAssigningTableId] = useState<number | null>(null);
+  const [ps4PlayerCount, setPs4PlayerCount] = useState<number>(1);
 
   // Ending table play & deleting state
   const [endingPlayId, setEndingPlayId] = useState<string | number | null>(null);
@@ -245,6 +253,10 @@ function CustomerPageContent() {
   const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null);
   const [settling, setSettling] = useState(false);
   const [closingVisit, setClosingVisit] = useState(false);
+
+  // Table play Transfer & Split modal targets
+  const [transferTargetPlay, setTransferTargetPlay] = useState<any | null>(null);
+  const [splitTargetPlay, setSplitTargetPlay] = useState<any | null>(null);
 
   // Live timer tick for active plays
   const [timerTick, setTimerTick] = useState(0);
@@ -311,14 +323,15 @@ function CustomerPageContent() {
   };
 
   // Assign Table to this Customer
-  const handleAssignTableToCustomer = async (tableId: number) => {
+  const handleAssignTableToCustomer = async (tableId: number, playerCount: number = 1) => {
     if (!customerData) return;
     try {
       setAssigningTableId(tableId);
       await api.post(`/tables/${tableId}/assign`, {
         customerId: customerData.customer.id,
         customerName: customerData.customer.name,
-        customerPhone: customerData.customer.phone
+        customerPhone: customerData.customer.phone,
+        playerCount
       });
       setShowAssignTableModal(false);
       await loadCustomerHistory(customerData.customer.phone || String(customerData.customer.id));
@@ -670,6 +683,16 @@ function CustomerPageContent() {
   const visitTotalPayable = selectedVisitTotal + totalCarriedForwardToThisVisit;
   const visitNetBalanceDue = Math.max(0, visitTotalPayable - selectedVisitPaid);
 
+  // Outstanding Udhar from visits OTHER than this selected visit (avoids double-counting if selected visit is closed)
+  const otherVisitsCreditRecords = (customerData?.customer?.unpaidCreditsBreakdown || []).filter(
+    (cr: any) => cr.visitId !== selectedVisit?.id
+  );
+  const selectedVisitPreviousCreditDue = otherVisitsCreditRecords.reduce(
+    (sum: number, cr: any) => sum + (cr.due ?? (cr.amount - (cr.settledAmount || 0))),
+    0
+  );
+  const selectedVisitGrandTotal = Math.round((selectedVisitBalanceDue + selectedVisitPreviousCreditDue) * 100) / 100;
+
   // Previous Days Outstanding Credit (Udhar accumulated from prior visits)
   const previousDaysOutstanding = typeof customerData?.customer?.previousUdharDue === 'number'
     ? customerData.customer.previousUdharDue
@@ -767,8 +790,8 @@ function CustomerPageContent() {
                   {selectedPhone && customerData ? customerData.customer.name : 'Customer Accounts & Profiles'}
                 </h1>
                 {customerData && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 font-mono">
-                    ID: #CUST-{String(customerData.customer.id).padStart(3, '0')}
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono text-slate-500 bg-slate-100 border border-slate-200">
+                    {customerData.customer.phone.startsWith('WALK-') ? `Walk-in #${customerData.customer.id}` : `#CUST-${String(customerData.customer.id).padStart(3, '0')}`}
                   </span>
                 )}
               </div>
@@ -821,12 +844,27 @@ function CustomerPageContent() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2.5 flex-wrap">
-                        <h2 className="text-xl font-black text-slate-900 font-display">
+                        <h2 className="text-xl font-bold text-slate-900 font-display">
                           {customerData.customer.name}
                         </h2>
-                        <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                          ID: #{customerData.customer.id}
-                        </span>
+                        {customerData.customer.phone.startsWith('WALK-') ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                              Walk-in #{customerData.customer.id}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setRegisterWalkinTarget(customerData.customer)}
+                              className="text-xs font-semibold text-slate-900 hover:text-blue-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-2.5 py-0.5 rounded-md transition-colors cursor-pointer"
+                            >
+                              + Add Phone
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] font-mono text-slate-400">
+                            #CUST-{String(customerData.customer.id).padStart(3, '0')}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 text-xs text-slate-500 font-medium mt-1.5 flex-wrap">
                         <span className="flex items-center gap-1.5 font-mono">
@@ -836,7 +874,8 @@ function CustomerPageContent() {
                         <span>•</span>
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                          Registered {new Date(customerData.customer.memberSince).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          {customerData.customer.phone.startsWith('WALK-') ? 'First visit ' : 'Member since '}
+                          {new Date(customerData.customer.memberSince).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                         <span>•</span>
                         <span>{customerData.customer.totalVisits} Lifetime Visits</span>
@@ -1172,7 +1211,7 @@ function CustomerPageContent() {
                         : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
+                    <Clock className="w-3.5 h-3.5" />
                     <span>
                       {isViewingToday
                         ? "Today's Activity"
@@ -1256,6 +1295,7 @@ function CustomerPageContent() {
                         const vNum = idx + 1;
                         const isSelected = selectedVisit?.id === v.id;
                         const startTimeStr = new Date(v.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        const isQuickSale = v.id?.startsWith('QS_');
 
                         return (
                           <button
@@ -1267,15 +1307,19 @@ function CustomerPageContent() {
                                 : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
                             }`}
                           >
-                            <span>Visit {vNum}</span>
+                            <span>{isQuickSale ? `Quick Sale` : `Visit ${vNum}`}</span>
                             <span className={`text-[10px] font-mono ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
                               ({startTimeStr})
                             </span>
-                            {!v.endTime && (
+                            {!v.endTime ? (
                               <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-emerald-500 text-white font-mono font-bold">
                                 Open
                               </span>
-                            )}
+                            ) : isQuickSale ? (
+                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold ${isSelected ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'}`}>
+                                Counter
+                              </span>
+                            ) : null}
                           </button>
                         );
                       })}
@@ -1292,7 +1336,7 @@ function CustomerPageContent() {
                       <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-slate-700">
                         <div className="flex items-center gap-2.5">
                           <span className="font-extrabold text-slate-900 font-display text-base">
-                            Visit {selectedVisitNumber} Activity
+                            {selectedVisit.id?.startsWith('QS_') ? 'Quick Sale (Counter Order)' : `Visit ${selectedVisitNumber} Activity`}
                           </span>
                           {!selectedVisit.endTime ? (
                             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
@@ -1454,6 +1498,28 @@ function CustomerPageContent() {
                                           </button>
                                         )}
 
+                                        {/* Transfer Table to Another Player (Loser Pays) */}
+                                        {isSelectedVisitActive && (
+                                          <button
+                                            onClick={() => setTransferTargetPlay(tp)}
+                                            className="p-1.5 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors cursor-pointer"
+                                            title="Transfer Table Charge to Co-Player (Loser Pays)"
+                                          >
+                                            <ArrowRightLeft className="w-4 h-4" />
+                                          </button>
+                                        )}
+
+                                        {/* Split Table Bill with Co-Players */}
+                                        {isSelectedVisitActive && (
+                                          <button
+                                            onClick={() => setSplitTargetPlay(tp)}
+                                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                            title="Split Table Bill with Co-Players"
+                                          >
+                                            <Users className="w-4 h-4" />
+                                          </button>
+                                        )}
+
                                         {/* Compact Delete Table Button - Icon Only */}
                                         <button
                                           onClick={() => handleDeleteTablePlay(selectedVisit.id, tp.id)}
@@ -1565,106 +1631,286 @@ function CustomerPageContent() {
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
                                 ✓ Paid in Full
                               </span>
-                            ) : !isSelectedVisitActive ? (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 font-mono">
-                                ● Unpaid (Due ₹{selectedVisitBalanceDue.toFixed(2)})
+                            ) : selectedVisitPaid > 0 ? (
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200 font-mono">
+                                ● Partially Paid (₹{selectedVisitPaid.toFixed(2)} Paid • ₹{selectedVisitBalanceDue.toFixed(2)} Remaining)
                               </span>
+                            ) : !isSelectedVisitActive ? (
+                              selectedVisit.paymentStatus === 'unsettled' ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200 font-mono">
+                                  ● Unsettled at Cutoff (Due ₹{selectedVisitBalanceDue.toFixed(2)})
+                                </span>
+                              ) : selectedVisit.paymentStatus === 'loss' ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 font-mono">
+                                  ● Walk-in Loss
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 font-mono">
+                                  ● Unpaid (Due ₹{selectedVisitBalanceDue.toFixed(2)})
+                                </span>
+                              )
                             ) : (
                               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200 font-mono">
-                                ● Not Paid (Due ₹{selectedVisitBalanceDue.toFixed(2)})
+                                ● Running Tab (Due ₹{selectedVisitBalanceDue.toFixed(2)})
                               </span>
                             )}
                           </div>
 
-                          {/* 2-COLUMN BREAKDOWN */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-xs py-1 border-b border-slate-100">
-                            <div className="flex items-center justify-between py-0.5 text-slate-600">
-                              <span>Tables Total:</span>
-                              <span className="font-mono font-bold text-slate-900">₹{displayGameSubtotal.toFixed(2)}</span>
-                            </div>
+                          {/* SINGLE-COLUMN ITEMIZED RECEIPT BREAKDOWN */}
+                          {(() => {
+                            const customerCreditDue = selectedVisitPreviousCreditDue;
+                            const grandTotalCollectible = selectedVisitGrandTotal;
 
-                            <div className="flex items-center justify-between py-0.5 text-slate-600">
-                              <span>Items Total:</span>
-                              <span className="font-mono font-bold text-slate-900">₹{displayCafeSubtotal.toFixed(2)}</span>
-                            </div>
+                            return (
+                              <div className="space-y-1.5 py-1 text-xs">
+                                {/* 1. Tables Total */}
+                                <div className="flex items-center justify-between py-1 text-slate-600 border-b border-slate-100">
+                                  <span>Tables / Gaming Total:</span>
+                                  <span className="font-mono font-bold text-slate-900">₹{displayGameSubtotal.toFixed(2)}</span>
+                                </div>
 
-                            <div className="flex items-center justify-between py-1 text-slate-900 font-bold border-t border-slate-100 md:border-t-0">
-                              <span>Total Visit Bill:</span>
-                              <span className="font-mono text-sm font-extrabold text-slate-900">₹{selectedVisitTotal.toFixed(2)}</span>
-                            </div>
+                                {/* 2. Items / Cafe Orders Total */}
+                                <div className="flex items-center justify-between py-1 text-slate-600 border-b border-slate-100">
+                                  <span>Items / Cafe Orders Total:</span>
+                                  <span className="font-mono font-bold text-slate-900">₹{displayCafeSubtotal.toFixed(2)}</span>
+                                </div>
 
-                            <div className="flex items-center justify-between py-1 font-bold">
-                              <span className="text-rose-700">Balance Due:</span>
-                              <span className="font-mono text-sm font-black text-rose-700">₹{selectedVisitBalanceDue.toFixed(2)}</span>
-                            </div>
-                          </div>
+                                {/* 3. Current Visit Bill */}
+                                <div className="flex items-center justify-between py-1.5 text-slate-900 font-bold border-b border-slate-100">
+                                  <span>Current Visit Bill:</span>
+                                  <span className="font-mono text-sm font-extrabold text-slate-900">₹{selectedVisitTotal.toFixed(2)}</span>
+                                </div>
+
+                                {/* 4. Advance Paid Today (Only shown if payment was already made earlier in the visit) */}
+                                {selectedVisitPaid > 0 && (
+                                  <div className="flex items-center justify-between py-1 text-emerald-700 font-bold border-b border-slate-100">
+                                    <span>Advance Paid Today:</span>
+                                    <span className="font-mono text-sm font-extrabold text-emerald-700">-₹{selectedVisitPaid.toFixed(2)}</span>
+                                  </div>
+                                )}
+
+                                {/* 5. Remaining for this visit (Only shown if advance was paid) */}
+                                {selectedVisitPaid > 0 && (
+                                  <div className="flex items-center justify-between py-1 text-slate-700 font-semibold border-b border-slate-100">
+                                    <span>Remaining Visit Bill:</span>
+                                    <span className="font-mono text-sm font-bold text-slate-900">₹{selectedVisitBalanceDue.toFixed(2)}</span>
+                                  </div>
+                                )}
+
+                                {/* 6. Previous Udhar / Credit (Only shown if customer owes past credit from other visits) */}
+                                {customerCreditDue > 0 && (
+                                  <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900">
+                                    <span className="font-medium">+ Previous Outstanding Udhar (Credit):</span>
+                                    <span className="font-mono text-sm font-bold text-amber-900">+₹{customerCreditDue.toFixed(2)}</span>
+                                  </div>
+                                )}
+
+                                {/* 7. Final Grand Total Row */}
+                                <div className="flex items-center justify-between py-2.5 px-3 bg-slate-50 rounded-xl border border-slate-200 mt-2">
+                                  <div className="flex flex-col">
+                                    <span className="text-[11px] font-bold uppercase tracking-wider font-mono text-slate-600">
+                                      {customerCreditDue > 0 ? "Total to Collect (Visit + Udhar):" : (selectedVisitBalanceDue > 0 ? "Remaining Balance to Pay:" : "Final Balance:")}
+                                    </span>
+                                    {customerCreditDue > 0 && (
+                                      <span className="text-[11px] text-slate-500 font-mono mt-0.5">
+                                        ₹{selectedVisitBalanceDue.toFixed(2)} visit + ₹{customerCreditDue.toFixed(2)} previous udhar
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className={`font-mono text-xl font-black ${customerCreditDue > 0 ? "text-slate-900" : (selectedVisitBalanceDue > 0 ? "text-rose-700" : "text-emerald-700")}`}>
+                                    ₹{(customerCreditDue > 0 ? grandTotalCollectible : selectedVisitBalanceDue).toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           {/* FULL PAYMENT & PARTIAL PAYMENT ACTION BUTTONS */}
-                          {isSelectedVisitActive ? (
-                            <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                              {selectedVisitBalanceDue > 0 ? (
-                                <div className="flex items-center gap-2.5 flex-wrap">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setPaymentCloseModal({
-                                        open: true,
-                                        mode: 'full',
-                                        visitId: selectedVisit.id,
-                                        visitTotal: selectedVisitBalanceDue
-                                      });
-                                    }}
-                                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2"
-                                  >
-                                    <CheckCircle2 className="w-4 h-4" />
-                                    <span>Full Payment (₹{selectedVisitBalanceDue.toFixed(2)})</span>
-                                  </button>
+                          {(() => {
+                            const customerCreditDue = selectedVisitPreviousCreditDue;
+                            const grandTotalCollectible = selectedVisitGrandTotal;
 
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setPaymentCloseModal({
-                                        open: true,
-                                        mode: 'partial',
-                                        visitId: selectedVisit.id,
-                                        visitTotal: selectedVisitBalanceDue
-                                      });
-                                    }}
-                                    className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2"
-                                  >
-                                    <CreditCard className="w-4 h-4" />
-                                    <span>Partial Payment</span>
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCloseVisit(selectedVisit.id, 0, selectedVisitNumber)}
-                                    disabled={closingVisit}
-                                    className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2"
-                                  >
-                                    <Check className="w-4 h-4 text-emerald-400" />
-                                    <span>{closingVisit ? 'Closing...' : 'Close Visit'}</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            selectedVisit.endTime && (
-                              <div className="pt-2 text-xs text-slate-500 font-mono flex items-center gap-2 flex-wrap">
+                            return isSelectedVisitActive ? (
+                              <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                {selectedVisitBalanceDue > 0 ? (
+                                  customerCreditDue > 0 ? (
+                                    <div className="flex items-center gap-2.5 flex-wrap">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPaymentCloseModal({
+                                            open: true,
+                                            mode: 'all',
+                                            visitId: selectedVisit.id,
+                                            visitTotal: selectedVisitBalanceDue,
+                                            previousCreditDue: customerCreditDue
+                                          });
+                                        }}
+                                        className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-2"
+                                      >
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                        <span>Pay All ₹{grandTotalCollectible.toFixed(2)} (Visit + Udhar)</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPaymentCloseModal({
+                                            open: true,
+                                            mode: 'visit',
+                                            visitId: selectedVisit.id,
+                                            visitTotal: selectedVisitBalanceDue,
+                                            previousCreditDue: customerCreditDue
+                                          });
+                                        }}
+                                        className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 active:scale-95 rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer flex items-center gap-2"
+                                      >
+                                        <span>Pay Visit Only (₹{selectedVisitBalanceDue.toFixed(2)})</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPaymentCloseModal({
+                                            open: true,
+                                            mode: 'partial',
+                                            visitId: selectedVisit.id,
+                                            visitTotal: selectedVisitBalanceDue,
+                                            previousCreditDue: customerCreditDue
+                                          });
+                                        }}
+                                        className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 active:scale-95 rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer flex items-center gap-2"
+                                      >
+                                        <CreditCard className="w-4 h-4 text-slate-500" />
+                                        <span>Custom Amount</span>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-2.5 flex-wrap">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPaymentCloseModal({
+                                            open: true,
+                                            mode: 'visit',
+                                            visitId: selectedVisit.id,
+                                            visitTotal: selectedVisitBalanceDue,
+                                            previousCreditDue: 0
+                                          });
+                                        }}
+                                        className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer flex items-center gap-2"
+                                      >
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                        <span>Full Payment (₹{selectedVisitBalanceDue.toFixed(2)})</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPaymentCloseModal({
+                                            open: true,
+                                            mode: 'partial',
+                                            visitId: selectedVisit.id,
+                                            visitTotal: selectedVisitBalanceDue,
+                                            previousCreditDue: 0
+                                          });
+                                        }}
+                                        className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 active:scale-95 rounded-xl text-xs font-semibold shadow-2xs transition-all cursor-pointer flex items-center gap-2"
+                                      >
+                                        <CreditCard className="w-4 h-4 text-slate-500" />
+                                        <span>Partial Payment</span>
+                                      </button>
+                                    </div>
+                                  )
+                                ) : (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCloseVisit(selectedVisit.id, 0, selectedVisitNumber)}
+                                      disabled={closingVisit}
+                                      className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-2"
+                                    >
+                                      <Check className="w-4 h-4 text-emerald-400" />
+                                      <span>{closingVisit ? 'Closing...' : 'Close Visit'}</span>
+                                    </button>
+                                    {customerCreditDue > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowSettleModal(true)}
+                                        className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+                                      >
+                                        <span>Settle Outstanding Udhar (₹{customerCreditDue.toFixed(2)})</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ) : null;
+                          })()}
+
+                          {!isSelectedVisitActive && selectedVisit.endTime && (
+                            <div className="pt-2 text-xs text-slate-500 font-mono flex items-center justify-between gap-3 flex-wrap">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span>✓ Visit Closed at {new Date(selectedVisit.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 {selectedVisitBalanceDue > 0 ? (
-                                  <span className="text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
-                                    Unpaid ₹{selectedVisitBalanceDue.toFixed(2)} recorded to Outstanding Balance
-                                  </span>
+                                  (customerData.customer.phone.startsWith('WALK-') || selectedVisit.paymentStatus === 'unsettled') ? (
+                                    <span className="text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                                      Unsettled Walk-in Bill (₹{selectedVisitBalanceDue.toFixed(2)})
+                                    </span>
+                                  ) : selectedVisit.paymentStatus === 'loss' ? (
+                                    <span className="text-slate-500 font-semibold bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                                      Written off as Walk-in Loss
+                                    </span>
+                                  ) : (
+                                    <span className="text-rose-700 font-bold bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                                      Unpaid ₹{selectedVisitBalanceDue.toFixed(2)} recorded to Outstanding Balance
+                                    </span>
+                                  )
                                 ) : (
                                   <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                                     Paid in Full
                                   </span>
                                 )}
                               </div>
-                            )
+
+                              {selectedVisitBalanceDue > 0 && (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPaymentCloseModal({
+                                        open: true,
+                                        mode: selectedVisitPreviousCreditDue > 0 ? 'all' : 'full',
+                                        visitId: selectedVisit.id,
+                                        visitTotal: selectedVisitBalanceDue,
+                                        previousCreditDue: selectedVisitPreviousCreditDue
+                                      });
+                                    }}
+                                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-2xs"
+                                  >
+                                    Settle Payment
+                                  </button>
+                                  {(customerData.customer.phone.startsWith('WALK-') || selectedVisit.paymentStatus === 'unsettled') && (
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        if (confirm(`Write off this ₹${selectedVisitBalanceDue.toFixed(2)} unpaid walk-in bill as loss?`)) {
+                                          try {
+                                            await api.post(`/visits/${selectedVisit.id}/mark-loss`, {});
+                                            if (selectedPhone) await loadCustomerHistory(selectedPhone);
+                                          } catch (err: any) {
+                                            alert(err.message || 'Failed to mark as loss');
+                                          }
+                                        }
+                                      }}
+                                      className="px-2.5 py-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-lg text-xs font-semibold cursor-pointer"
+                                    >
+                                      Mark as Loss
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
 
@@ -1770,8 +2016,13 @@ function CustomerPageContent() {
                                   <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-200/60 gap-2">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className="font-bold text-slate-900 text-xs font-display">
-                                        Visit {vIdx + 1} at {new Date(v.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        {v.id?.startsWith('QS_') ? 'Quick Sale' : `Visit ${vIdx + 1}`} at {new Date(v.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                       </span>
+                                      {v.id?.startsWith('QS_') && (
+                                        <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 border border-slate-200 font-mono">
+                                          Counter
+                                        </span>
+                                      )}
                                       {v.endTime && (
                                         <span className="text-[10px] text-slate-500 font-mono">
                                           (Closed {new Date(v.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
@@ -2070,10 +2321,10 @@ function CustomerPageContent() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 font-display">
-                  Permanent Customer Accounts
+                  Customer Directory
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Select a customer to open their dedicated page, manage running tables, and view day-wise history
+                  Customer profiles, active visits, and billing history
                 </p>
               </div>
 
@@ -2117,41 +2368,126 @@ function CustomerPageContent() {
                       </td>
                     </tr>
                   ) : (
-                    customers.map((c) => (
-                      <tr 
-                        key={c.id || c.phone} 
-                        onClick={() => {
-                          setSelectedPhone(c.phone);
-                          router.push(`/customers?phone=${encodeURIComponent(c.phone)}`);
-                        }}
-                        className="hover:bg-slate-50 cursor-pointer font-medium group transition-colors"
-                      >
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-xs group-hover:scale-105 transition-transform">
-                              {c.name.slice(0, 2).toUpperCase()}
+                    customers.map((c) => {
+                      const isWalkIn = Boolean(c.phone && (c.phone.startsWith('WALK-') || c.phone.replace(/\D/g, '').length < 10));
+                      return (
+                        <tr 
+                          key={c.id || c.phone} 
+                          className="hover:bg-slate-50 font-medium group transition-colors"
+                        >
+                          <td 
+                            onClick={() => {
+                              setSelectedPhone(c.phone);
+                              router.push(`/customers?phone=${encodeURIComponent(c.phone)}`);
+                            }}
+                            className="py-3 px-4 cursor-pointer"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs bg-slate-900 text-white">
+                                {c.name.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                                  {c.name}
+                                </span>
+                                {isWalkIn && (
+                                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                                    Walk-in
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                            <span className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                              {c.name}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 font-mono text-slate-500">
-                          #CUST-{String(c.id).padStart(3, '0')}
-                        </td>
-                        <td className="py-3 px-4 font-mono font-bold text-slate-700">
-                          {c.phone.startsWith('WALK-') ? 'Walk-in (No Phone)' : c.phone}
-                        </td>
-                        <td className="py-3 px-4 text-slate-500">
-                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'Active Member'}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="px-3 py-1 bg-slate-900 group-hover:bg-blue-600 text-white text-[11px] font-bold rounded-lg shadow-2xs transition-all">
-                            Open Dedicated Profile →
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td 
+                            onClick={() => {
+                              setSelectedPhone(c.phone);
+                              router.push(`/customers?phone=${encodeURIComponent(c.phone)}`);
+                            }}
+                            className="py-3 px-4 font-mono text-slate-500 cursor-pointer"
+                          >
+                            {isWalkIn ? (
+                              <span className="text-slate-600 text-xs font-mono">
+                                #{c.id}
+                              </span>
+                            ) : (
+                              <span className="text-xs font-mono">#CUST-{String(c.id).padStart(3, '0')}</span>
+                            )}
+                          </td>
+                          <td 
+                            onClick={() => {
+                              setSelectedPhone(c.phone);
+                              router.push(`/customers?phone=${encodeURIComponent(c.phone)}`);
+                            }}
+                            className="py-3 px-4 font-mono font-bold text-slate-700 cursor-pointer"
+                          >
+                            {isWalkIn ? (
+                              <span className="text-slate-400 text-xs font-normal italic">
+                                No phone
+                              </span>
+                            ) : (
+                              <span>{c.phone}</span>
+                            )}
+                          </td>
+                          <td 
+                            onClick={() => {
+                              setSelectedPhone(c.phone);
+                              router.push(`/customers?phone=${encodeURIComponent(c.phone)}`);
+                            }}
+                            className="py-3 px-4 text-slate-500 cursor-pointer"
+                          >
+                            {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'Active Member'}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {isWalkIn && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setRegisterWalkinTarget(c);
+                                  }}
+                                  className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-[11px] font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                                >
+                                  <UserPlus className="w-3 h-3 text-slate-500" />
+                                  <span>+ Add Phone</span>
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPhone(c.phone);
+                                  router.push(`/customers?phone=${encodeURIComponent(c.phone)}`);
+                                }}
+                                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                              >
+                                <span>View Profile →</span>
+                              </button>
+                              {isWalkIn && (
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (confirm(`Delete unregistered walk-in customer "${c.name}"?`)) {
+                                      try {
+                                        await api.delete(`/customers/${encodeURIComponent(c.phone)}`);
+                                        await loadCustomers(searchQuery.trim());
+                                      } catch (err: any) {
+                                        alert(err.message || 'Failed to delete walk-in customer');
+                                      }
+                                    }
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete accidental duplicate walk-in"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -2195,28 +2531,99 @@ function CustomerPageContent() {
               ) : floorTables.filter(t => t.status !== 'occupied').length === 0 ? (
                 <div className="py-8 text-center text-xs text-slate-400">All tables are currently occupied.</div>
               ) : (
-                floorTables.filter(t => t.status !== 'occupied').map((t) => (
-                  <div
-                    key={t.id}
-                    onClick={() => handleAssignTableToCustomer(t.id)}
-                    className="p-3 rounded-xl border border-slate-200 hover:border-slate-400 hover:bg-slate-50 cursor-pointer flex items-center justify-between transition-all group"
-                  >
-                    <div>
-                      <h4 className="font-bold text-xs text-slate-900">
-                        {t.name || `${t.gameType} Table ${t.number}`}
-                      </h4>
-                      <p className="text-[10px] text-slate-400 font-mono">
-                        Rate: ₹{t.gameType === 'MidSnooker' ? 220 : 160}/hr
-                      </p>
-                    </div>
-                    <button
-                      disabled={assigningTableId === t.id}
-                      className="px-3 py-1 bg-slate-900 group-hover:bg-blue-600 text-white text-[11px] font-bold rounded-lg"
+                floorTables.filter(t => t.status !== 'occupied').map((t) => {
+                  const isPS4 = t.gameType === 'PS4';
+                  const ps4Rate = ps4PlayerCount === 1 ? 80 : ps4PlayerCount === 2 ? 150 : 200;
+                  const tableRate = t.ratePerHour || (t.gameType === 'MidSnooker' ? 220 : 160);
+
+                  if (isPS4) {
+                    return (
+                      <div
+                        key={t.id}
+                        className="p-3.5 rounded-xl border-2 border-indigo-200/90 bg-indigo-50/50 space-y-2.5 transition-all"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                              <Gamepad2 className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>{t.name || `PS4 Station ${t.number}`}</span>
+                            </h4>
+                            <p className="text-[10px] text-indigo-700 font-semibold mt-0.5">
+                              Select Number of Players:
+                            </p>
+                          </div>
+                          <span className="text-xs font-mono font-black text-indigo-700 bg-white px-2.5 py-0.5 rounded-lg border border-indigo-200 shadow-2xs">
+                            ₹{ps4Rate}/hr
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[
+                            { count: 1, label: '1P', rate: '₹80/hr' },
+                            { count: 2, label: '2P', rate: '₹150/hr' },
+                            { count: 3, label: '3P', rate: '₹200/hr' },
+                            { count: 4, label: '4P', rate: '₹200/hr' },
+                          ].map((p) => {
+                            const isSelected = ps4PlayerCount === p.count;
+                            return (
+                              <button
+                                key={p.count}
+                                type="button"
+                                onClick={() => setPs4PlayerCount(p.count)}
+                                className={`py-1.5 px-1 rounded-lg text-center border transition-all cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-500/20'
+                                    : 'bg-white hover:bg-indigo-50/60 text-slate-700 border-slate-200'
+                                }`}
+                              >
+                                <div className="text-xs font-black">{p.label}</div>
+                                <div className={`text-[10px] font-mono font-bold ${isSelected ? 'text-indigo-100' : 'text-indigo-600'}`}>
+                                  {p.rate}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="pt-2 border-t border-indigo-100 flex items-center justify-between">
+                          <span className="text-[10px] font-mono text-slate-500">
+                            {ps4PlayerCount} Player{ps4PlayerCount > 1 ? 's' : ''} • ₹{ps4Rate}/hr
+                          </span>
+                          <button
+                            onClick={() => handleAssignTableToCustomer(t.id, ps4PlayerCount)}
+                            disabled={assigningTableId === t.id}
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold rounded-lg shadow-xs transition-all cursor-pointer"
+                          >
+                            {assigningTableId === t.id ? 'Starting...' : 'Start PS4 Play'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => handleAssignTableToCustomer(t.id, 1)}
+                      className="p-3 rounded-xl border border-slate-200 hover:border-slate-400 hover:bg-slate-50 cursor-pointer flex items-center justify-between transition-all group"
                     >
-                      {assigningTableId === t.id ? 'Starting...' : 'Start Play'}
-                    </button>
-                  </div>
-                ))
+                      <div>
+                        <h4 className="font-bold text-xs text-slate-900">
+                          {t.name || `${t.gameType} Table ${t.number}`}
+                        </h4>
+                        <p className="text-[10px] text-slate-400 font-mono">
+                          Rate: ₹{tableRate}/hr
+                        </p>
+                      </div>
+                      <button
+                        disabled={assigningTableId === t.id}
+                        className="px-3 py-1 bg-slate-900 group-hover:bg-blue-600 text-white text-[11px] font-bold rounded-lg cursor-pointer"
+                      >
+                        {assigningTableId === t.id ? 'Starting...' : 'Start Play'}
+                      </button>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -2302,9 +2709,9 @@ function CustomerPageContent() {
             </div>
 
             {/* Sub-header instruction */}
-            <div className="px-5 py-2.5 bg-blue-50/80 border-b border-blue-100 text-[11px] text-blue-900 flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span>Click on any visit below to immediately jump into that day's workspace &amp; bill.</span>
+            <div className="px-5 py-2 bg-slate-50 border-b border-slate-100 text-[11px] text-slate-500 flex items-center gap-2">
+              <Info className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>Click any visit to jump to its date and bill.</span>
             </div>
 
             {/* List of Credit Entries */}
@@ -2402,14 +2809,73 @@ function CustomerPageContent() {
           visitId={paymentCloseModal.visitId}
           customerName={customerData.customer.name}
           customerId={customerData.customer.id}
+          customerPhone={customerData.customer.phone}
           visitTotal={paymentCloseModal.visitTotal}
+          previousCreditDue={paymentCloseModal.previousCreditDue ?? 0}
           initialMode={paymentCloseModal.mode}
           onClose={() => setPaymentCloseModal(null)}
+          onOpenRegisterWalkin={() => setShowRegisterWalkinModal(true)}
           onSuccess={async () => {
             setPaymentCloseModal(null);
             if (selectedPhone) {
               await loadCustomerHistory(selectedPhone);
             }
+          }}
+        />
+      )}
+
+      {/* MODAL 8: TRANSFER TABLE PLAY (Loser Pays) */}
+      {transferTargetPlay && customerData && (
+        <TransferTableModal
+          tablePlay={transferTargetPlay}
+          currentCustomer={customerData.customer}
+          onClose={() => setTransferTargetPlay(null)}
+          onSuccess={async () => {
+            setTransferTargetPlay(null);
+            if (selectedPhone) {
+              await loadCustomerHistory(selectedPhone);
+            }
+          }}
+        />
+      )}
+
+      {/* MODAL 9: SPLIT TABLE PLAY (Multi-player Split) */}
+      {splitTargetPlay && customerData && (
+        <SplitTableModal
+          tablePlay={splitTargetPlay}
+          currentCustomer={customerData.customer}
+          onClose={() => setSplitTargetPlay(null)}
+          onSuccess={async () => {
+            setSplitTargetPlay(null);
+            if (selectedPhone) {
+              await loadCustomerHistory(selectedPhone);
+            }
+          }}
+        />
+      )}
+
+      {/* MODAL 10: REGISTER WALKIN CUSTOMER (UPGRADE TO PERMANENT MEMBER) */}
+      {(registerWalkinTarget || (showRegisterWalkinModal && customerData)) && (
+        <RegisterWalkinModal
+          customerId={registerWalkinTarget ? registerWalkinTarget.id : customerData!.customer.id}
+          currentName={registerWalkinTarget ? registerWalkinTarget.name : customerData!.customer.name}
+          currentFirstName={registerWalkinTarget ? registerWalkinTarget.firstName : customerData!.customer.firstName}
+          currentLastName={registerWalkinTarget ? registerWalkinTarget.lastName : customerData!.customer.lastName}
+          currentWalkinPhone={registerWalkinTarget ? registerWalkinTarget.phone : customerData!.customer.phone}
+          onClose={() => {
+            setShowRegisterWalkinModal(false);
+            setRegisterWalkinTarget(null);
+          }}
+          onSuccess={async (updatedCustomer) => {
+            setShowRegisterWalkinModal(false);
+            setRegisterWalkinTarget(null);
+            const newPhone = updatedCustomer.phone;
+            if (selectedPhone) {
+              setSelectedPhone(newPhone);
+              router.push(`/customers?phone=${encodeURIComponent(newPhone)}`);
+              await loadCustomerHistory(newPhone);
+            }
+            await loadCustomers(searchQuery.trim());
           }}
         />
       )}

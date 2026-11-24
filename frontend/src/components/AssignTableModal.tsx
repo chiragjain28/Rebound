@@ -17,7 +17,8 @@ import {
   Gamepad2,
   Clock,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Users
 } from 'lucide-react';
 
 interface CustomerSuggestion {
@@ -47,6 +48,9 @@ export const AssignTableModal: React.FC<AssignTableModalProps> = ({
   const [searchResults, setSearchResults] = useState<CustomerSuggestion[]>([]);
   const [searching, setSearching] = useState(false);
   const [assigningId, setAssigningId] = useState<number | null>(null);
+
+  // PS4 player count state: 1 (₹80/hr), 2 (₹150/hr), 3 (₹200/hr), 4 (₹200/hr)
+  const [playerCount, setPlayerCount] = useState<number>(1);
 
   // New customer form state
   const [newName, setNewName] = useState('');
@@ -90,6 +94,9 @@ export const AssignTableModal: React.FC<AssignTableModalProps> = ({
     };
   }, [searchQuery]);
 
+  // Dynamic PS4 rate
+  const ps4Rate = playerCount === 1 ? 80 : playerCount === 2 ? 150 : 200;
+
   // Assign to existing customer
   const handleAssignExisting = async (customer: CustomerSuggestion) => {
     try {
@@ -99,7 +106,8 @@ export const AssignTableModal: React.FC<AssignTableModalProps> = ({
       const res = await api.post(`/tables/${table.id}/assign`, {
         customerId: customer.id,
         customerName: customer.name,
-        customerPhone: customer.phone
+        customerPhone: customer.phone,
+        playerCount: table.gameType === 'PS4' ? playerCount : 1
       });
 
       if (onSuccess) {
@@ -132,7 +140,8 @@ export const AssignTableModal: React.FC<AssignTableModalProps> = ({
       setSubmittingNew(true);
       const res = await api.post(`/tables/${table.id}/assign`, {
         customerName: cleanName,
-        customerPhone: cleanPhone || undefined
+        customerPhone: cleanPhone || undefined,
+        playerCount: table.gameType === 'PS4' ? playerCount : 1
       });
 
       if (onSuccess) {
@@ -188,6 +197,51 @@ export const AssignTableModal: React.FC<AssignTableModalProps> = ({
             <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* PS4 Player Count Selection */}
+          {table.gameType === 'PS4' && (
+            <div className="p-4 rounded-2xl bg-indigo-50/70 border-2 border-indigo-200/90 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-black uppercase tracking-wider text-indigo-950 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-indigo-600" />
+                  <span>Number of Players</span>
+                </label>
+                <span className="text-xs font-mono font-black text-indigo-700 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shadow-2xs">
+                  Rate: ₹{ps4Rate}/hr
+                </span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { count: 1, label: '1 Player', rate: '₹80/hr' },
+                  { count: 2, label: '2 Players', rate: '₹150/hr' },
+                  { count: 3, label: '3 Players', rate: '₹200/hr' },
+                  { count: 4, label: '4 Players', rate: '₹200/hr' },
+                ].map((p) => {
+                  const isSelected = playerCount === p.count;
+                  return (
+                    <button
+                      key={p.count}
+                      type="button"
+                      onClick={() => setPlayerCount(p.count)}
+                      className={`py-2.5 px-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-2 ring-indigo-500/30'
+                          : 'bg-white hover:bg-indigo-50/60 text-slate-700 border-slate-200 hover:border-indigo-300'
+                      }`}
+                    >
+                      <span className={`text-xs font-black ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                        {p.label}
+                      </span>
+                      <span className={`text-[11px] font-mono font-bold mt-0.5 ${isSelected ? 'text-indigo-100' : 'text-indigo-600'}`}>
+                        {p.rate}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -319,8 +373,8 @@ export const AssignTableModal: React.FC<AssignTableModalProps> = ({
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1 flex items-center justify-between">
                 <span>Phone Number</span>
-                <span className="text-[10px] text-slate-400 font-normal normal-case">
-                  Optional (system assigns unique ID for analytics)
+                <span className="text-[10px] text-amber-600 font-bold normal-case">
+                  Optional for quick start (NEWCUST ID)
                 </span>
               </label>
               <div className="relative">
@@ -330,10 +384,13 @@ export const AssignTableModal: React.FC<AssignTableModalProps> = ({
                   maxLength={10}
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value.replace(/\D/g, ''))}
-                  placeholder="10-digit mobile number (optional)"
+                  placeholder="10-digit mobile number (leave blank for quick walk-in)"
                   className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 font-mono transition-all"
                 />
               </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Leave blank for quick rush-hour start. Full Cash/UPI payment is required at checkout until registered.
+              </p>
             </div>
 
             <button

@@ -43,7 +43,7 @@ router.get('/', authenticateToken, async (req, res) => {
 router.post('/:id/assign', authenticateToken, async (req: any, res) => {
   try {
     const tableId = parseInt(req.params.id);
-    const { customerId, customerName, customerPhone } = req.body;
+    const { customerId, customerName, customerPhone, playerCount } = req.body;
     const staffUsername = req.user?.username || 'chirag';
 
     // 1. Verify table
@@ -145,6 +145,10 @@ router.post('/:id/assign', authenticateToken, async (req: any, res) => {
       });
     }
 
+    const parsedPlayerCount = table.gameType === 'PS4'
+      ? Math.max(1, Math.min(4, parseInt(playerCount) || 1))
+      : 1;
+
     // 4. Create table play record and mark table occupied
     const [tablePlay, updatedTable] = await prisma.$transaction([
       prisma.tablePlay.create({
@@ -152,6 +156,7 @@ router.post('/:id/assign', authenticateToken, async (req: any, res) => {
           visitId: visit.id,
           tableId: table.id,
           gameType: table.gameType,
+          playerCount: parsedPlayerCount,
           startTime: now,
           createdBy: staffUsername
         },

@@ -160,18 +160,15 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
     return padLeft + (index / (points.length - 1)) * plotWidth;
   };
 
-  // Generate Smooth Bezier Curve Path
+  // Generate Clean Linear Path (Professional Financial / SaaS Analytics Style - No Childish Curves)
   const buildSmoothPath = (values: number[]) => {
     if (values.length === 0) return '';
     const pts = values.map((v, i) => ({ x: getXCoord(i), y: getYCoord(v) }));
-    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+    if (pts.length === 1) return `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
 
-    let path = `M ${pts[0].x} ${pts[0].y}`;
+    let path = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
     for (let i = 1; i < pts.length; i++) {
-      const prev = pts[i - 1];
-      const curr = pts[i];
-      const cx = prev.x + (curr.x - prev.x) / 2;
-      path += ` C ${cx} ${prev.y}, ${cx} ${curr.y}, ${curr.x} ${curr.y}`;
+      path += ` L ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)}`;
     }
     return path;
   };
@@ -179,13 +176,13 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
   const buildAreaPath = (values: number[]) => {
     const linePath = buildSmoothPath(values);
     if (!linePath) return '';
-    const lastX = getXCoord(values.length - 1);
-    const firstX = getXCoord(0);
-    const bottomY = padTop + plotHeight;
+    const lastX = getXCoord(values.length - 1).toFixed(1);
+    const firstX = getXCoord(0).toFixed(1);
+    const bottomY = (padTop + plotHeight).toFixed(1);
     return `${linePath} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
   };
 
-  // Generate Local Sparkline Curves (scaled strictly to micro-card viewBox)
+  // Generate Local Sparkline Linear Paths (Scaled strictly to micro-card viewBox - No Curves)
   const buildSparklinePath = (values: number[], w = 200, h = 42, customMax?: number) => {
     if (!values || values.length === 0) return '';
     const padX = 6;
@@ -204,10 +201,7 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
 
     let path = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
     for (let i = 1; i < pts.length; i++) {
-      const prev = pts[i - 1];
-      const curr = pts[i];
-      const cx = ((prev.x + curr.x) / 2).toFixed(1);
-      path += ` C ${cx} ${prev.y.toFixed(1)}, ${cx} ${curr.y.toFixed(1)}, ${curr.x.toFixed(1)} ${curr.y.toFixed(1)}`;
+      path += ` L ${pts[i].x.toFixed(1)} ${pts[i].y.toFixed(1)}`;
     }
     return path;
   };
@@ -288,17 +282,17 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
           {/* Legend 1: Overall Total */}
           <div 
             onClick={() => setActiveTab('total')}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-              activeTab === 'total' || activeTab === 'all'
-                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+            className={`p-3 rounded-xl border transition-all cursor-pointer ${
+              activeTab === 'total'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                : 'bg-white border-slate-200/90 text-slate-800 hover:border-slate-300 hover:bg-slate-50/60 shadow-2xs'
             }`}
           >
             <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
-              <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 shrink-0" />
-              <span>Overall Total</span>
+              <span className={`w-2 h-2 rounded-full shrink-0 ${activeTab === 'total' ? 'bg-slate-300' : 'bg-slate-900'}`} />
+              <span className={activeTab === 'total' ? 'text-slate-300' : 'text-slate-500'}>Overall Total</span>
             </div>
-            <p className="text-lg font-black font-display mt-1">
+            <p className={`text-lg font-black font-mono mt-1 ${activeTab === 'total' ? 'text-white' : 'text-slate-900'}`}>
               ₹{totals.totalSales.toLocaleString('en-IN')}
             </p>
           </div>
@@ -306,17 +300,17 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
           {/* Legend 2: Mid Snooker */}
           <div 
             onClick={() => setActiveTab('billiards')}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-              activeTab === 'billiards' || activeTab === 'all'
-                ? 'bg-purple-50 border-purple-200 text-purple-950 shadow-2xs'
-                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+            className={`p-3 rounded-xl border transition-all cursor-pointer ${
+              activeTab === 'billiards'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                : 'bg-white border-slate-200/90 text-slate-800 hover:border-slate-300 hover:bg-slate-50/60 shadow-2xs'
             }`}
           >
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-purple-700">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-600 shrink-0" />
-              <span>Mid Snooker</span>
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${activeTab === 'billiards' ? 'bg-indigo-300' : 'bg-indigo-500'}`} />
+              <span className={activeTab === 'billiards' ? 'text-slate-300' : 'text-slate-500'}>Mid Snooker</span>
             </div>
-            <p className="text-lg font-black font-display mt-1 text-purple-900">
+            <p className={`text-lg font-black font-mono mt-1 ${activeTab === 'billiards' ? 'text-white' : 'text-slate-900'}`}>
               ₹{totals.snookerSales.toLocaleString('en-IN')}
             </p>
           </div>
@@ -324,17 +318,17 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
           {/* Legend 3: Pool Tables */}
           <div 
             onClick={() => setActiveTab('billiards')}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-              activeTab === 'billiards' || activeTab === 'all'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-950 shadow-2xs'
-                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+            className={`p-3 rounded-xl border transition-all cursor-pointer ${
+              activeTab === 'billiards'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                : 'bg-white border-slate-200/90 text-slate-800 hover:border-slate-300 hover:bg-slate-50/60 shadow-2xs'
             }`}
           >
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 shrink-0" />
-              <span>Pool Tables</span>
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${activeTab === 'billiards' ? 'bg-teal-300' : 'bg-teal-600'}`} />
+              <span className={activeTab === 'billiards' ? 'text-slate-300' : 'text-slate-500'}>Pool Tables</span>
             </div>
-            <p className="text-lg font-black font-display mt-1 text-emerald-900">
+            <p className={`text-lg font-black font-mono mt-1 ${activeTab === 'billiards' ? 'text-white' : 'text-slate-900'}`}>
               ₹{totals.poolSales.toLocaleString('en-IN')}
             </p>
           </div>
@@ -342,17 +336,17 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
           {/* Legend 4: Cafe & Drinks */}
           <div 
             onClick={() => setActiveTab('cafe')}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-              activeTab === 'cafe' || activeTab === 'all'
-                ? 'bg-amber-50 border-amber-200 text-amber-950 shadow-2xs'
-                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+            className={`p-3 rounded-xl border transition-all cursor-pointer ${
+              activeTab === 'cafe'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                : 'bg-white border-slate-200/90 text-slate-800 hover:border-slate-300 hover:bg-slate-50/60 shadow-2xs'
             }`}
           >
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
-              <span>Cafe Sales</span>
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${activeTab === 'cafe' ? 'bg-amber-300' : 'bg-amber-600'}`} />
+              <span className={activeTab === 'cafe' ? 'text-slate-300' : 'text-slate-500'}>Cafe Sales</span>
             </div>
-            <p className="text-lg font-black font-display mt-1 text-amber-900">
+            <p className={`text-lg font-black font-mono mt-1 ${activeTab === 'cafe' ? 'text-white' : 'text-slate-900'}`}>
               ₹{totals.cafeSales.toLocaleString('en-IN')}
             </p>
           </div>
@@ -360,17 +354,17 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
           {/* Legend 5: Credit Extended */}
           <div 
             onClick={() => setActiveTab('credit')}
-            className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-              activeTab === 'credit' || activeTab === 'all'
-                ? 'bg-rose-50 border-rose-200 text-rose-950 shadow-2xs'
-                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+            className={`p-3 rounded-xl border transition-all cursor-pointer ${
+              activeTab === 'credit'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                : 'bg-white border-slate-200/90 text-slate-800 hover:border-slate-300 hover:bg-slate-50/60 shadow-2xs'
             }`}
           >
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-rose-700">
-              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
-              <span>Credits Extended</span>
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${activeTab === 'credit' ? 'bg-rose-300' : 'bg-rose-600'}`} />
+              <span className={activeTab === 'credit' ? 'text-slate-300' : 'text-slate-500'}>Credits Extended</span>
             </div>
-            <p className="text-lg font-black font-display mt-1 text-rose-900">
+            <p className={`text-lg font-black font-mono mt-1 ${activeTab === 'credit' ? 'text-white' : 'text-slate-900'}`}>
               ₹{totals.creditSales.toLocaleString('en-IN')}
             </p>
           </div>
@@ -384,26 +378,26 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
             onMouseLeave={() => setHoverIndex(null)}
           >
             <defs>
-              {/* Gradients */}
+              {/* Executive Muted Gradients (Ultra subtle, no neon brightness) */}
               <linearGradient id="grad-total" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.28" />
-                <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="#0f172a" stopOpacity="0.06" />
+                <stop offset="100%" stopColor="#0f172a" stopOpacity="0.0" />
               </linearGradient>
               <linearGradient id="grad-snooker" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#9333ea" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#9333ea" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="#475569" stopOpacity="0.05" />
+                <stop offset="100%" stopColor="#475569" stopOpacity="0.0" />
               </linearGradient>
               <linearGradient id="grad-pool" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#059669" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#059669" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="#0d9488" stopOpacity="0.05" />
+                <stop offset="100%" stopColor="#0d9488" stopOpacity="0.0" />
               </linearGradient>
               <linearGradient id="grad-cafe" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#d97706" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#d97706" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="#b45309" stopOpacity="0.05" />
+                <stop offset="100%" stopColor="#b45309" stopOpacity="0.0" />
               </linearGradient>
               <linearGradient id="grad-credit" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#e11d48" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#e11d48" stopOpacity="0.0" />
+                <stop offset="0%" stopColor="#991b1b" stopOpacity="0.05" />
+                <stop offset="100%" stopColor="#991b1b" stopOpacity="0.0" />
               </linearGradient>
             </defs>
 
@@ -453,67 +447,127 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
               <path d={buildAreaPath(creditSeries)} fill="url(#grad-credit)" />
             )}
 
-            {/* Stroke Lines */}
-            {/* 1. Cafe Line (Amber) */}
+            {/* Professional Linear Stroke Lines (Muted Executive Palette) */}
+            {/* 1. Cafe Line (Muted Warm Amber) */}
             {(activeTab === 'all' || activeTab === 'cafe') && (
               <path
                 d={buildSmoothPath(cafeSeries)}
                 fill="none"
-                stroke="#d97706"
-                strokeWidth={activeTab === 'cafe' ? 3 : 2}
+                stroke="#b45309"
+                strokeWidth={activeTab === 'cafe' ? 2 : 1.25}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             )}
 
-            {/* 2. Pool Line (Emerald) */}
+            {/* 2. Pool Line (Muted Teal) */}
             {(activeTab === 'all' || activeTab === 'billiards') && (
               <path
                 d={buildSmoothPath(poolSeries)}
                 fill="none"
-                stroke="#059669"
-                strokeWidth={activeTab === 'billiards' ? 3 : 2}
+                stroke="#0d9488"
+                strokeWidth={activeTab === 'billiards' ? 2 : 1.25}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             )}
 
-            {/* 3. Snooker Line (Purple) */}
-            {(activeTab === 'all' || activeTab === 'billiards') && (
+            {/* 3. Snooker Line (Muted Slate-Steel) */}
+            {(activeTab === 'billiards' || activeTab === 'all') && (
               <path
                 d={buildSmoothPath(snookerSeries)}
                 fill="none"
-                stroke="#9333ea"
-                strokeWidth={activeTab === 'billiards' ? 3 : 2}
+                stroke="#64748b"
+                strokeWidth={activeTab === 'billiards' ? 2 : 1.25}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             )}
 
-            {/* 4. Credit Line (Rose) */}
+            {/* 4. Credit Line (Muted Dark Crimson - Dashed) */}
             {(activeTab === 'all' || activeTab === 'credit') && (
               <path
                 d={buildSmoothPath(creditSeries)}
                 fill="none"
-                stroke="#e11d48"
-                strokeWidth={activeTab === 'credit' ? 3 : 2}
+                stroke="#991b1b"
+                strokeWidth={activeTab === 'credit' ? 2 : 1.25}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeDasharray={activeTab === 'all' ? '5 3' : '0'}
+                strokeDasharray="4 4"
               />
             )}
 
-            {/* 5. Overall Total Sales (Indigo - Master Line) */}
+            {/* 5. Overall Total Sales (Deep Slate 900 - Master Clean Line) */}
             {(activeTab === 'all' || activeTab === 'total') && (
               <path
                 d={buildSmoothPath(totalSeries)}
                 fill="none"
-                stroke="#4f46e5"
-                strokeWidth={3.5}
+                stroke="#0f172a"
+                strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
             )}
+
+            {/* Data Point Nodes (Clean vertex circles on real data points) */}
+            {points.length <= 31 && points.map((_, i) => {
+              const x = getXCoord(i);
+              const isHov = hoverIndex === i;
+              return (
+                <g key={`node-${i}`} className="pointer-events-none">
+                  {(activeTab === 'all' || activeTab === 'total') && (
+                    <circle
+                      cx={x}
+                      cy={getYCoord(totalSeries[i])}
+                      r={isHov ? 4.5 : 2.5}
+                      fill="#0f172a"
+                      stroke="#ffffff"
+                      strokeWidth={isHov ? 2 : 1.5}
+                    />
+                  )}
+                  {activeTab === 'billiards' && (
+                    <>
+                      <circle
+                        cx={x}
+                        cy={getYCoord(snookerSeries[i])}
+                        r={isHov ? 4.5 : 2.5}
+                        fill="#64748b"
+                        stroke="#ffffff"
+                        strokeWidth={1.5}
+                      />
+                      <circle
+                        cx={x}
+                        cy={getYCoord(poolSeries[i])}
+                        r={isHov ? 4.5 : 2.5}
+                        fill="#0d9488"
+                        stroke="#ffffff"
+                        strokeWidth={1.5}
+                      />
+                    </>
+                  )}
+                  {activeTab === 'cafe' && (
+                    <circle
+                      cx={x}
+                      cy={getYCoord(cafeSeries[i])}
+                      r={isHov ? 4.5 : 2.5}
+                      fill="#b45309"
+                      stroke="#ffffff"
+                      strokeWidth={1.5}
+                    />
+                  )}
+                  {activeTab === 'credit' && (
+                    <circle
+                      cx={x}
+                      cy={getYCoord(creditSeries[i])}
+                      r={isHov ? 4.5 : 2.5}
+                      fill="#991b1b"
+                      stroke="#ffffff"
+                      strokeWidth={1.5}
+                    />
+                  )}
+                </g>
+              );
+            })}
 
             {/* Vertical Indicator on Hover */}
             {hoverIndex !== null && (
@@ -523,8 +577,8 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
                   y1={padTop}
                   x2={getXCoord(hoverIndex)}
                   y2={padTop + plotHeight}
-                  stroke="#475569"
-                  strokeWidth="1.5"
+                  stroke="#94a3b8"
+                  strokeWidth="1"
                   strokeDasharray="3 3"
                 />
                 {/* Dots on the active series */}
@@ -532,10 +586,10 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
                   <circle
                     cx={getXCoord(hoverIndex)}
                     cy={getYCoord(totalSeries[hoverIndex])}
-                    r="5"
-                    fill="#4f46e5"
+                    r="4.5"
+                    fill="#0f172a"
                     stroke="#ffffff"
-                    strokeWidth="2.5"
+                    strokeWidth="2"
                   />
                 )}
                 {(activeTab === 'all' || activeTab === 'billiards') && (
@@ -543,18 +597,18 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
                     <circle
                       cx={getXCoord(hoverIndex)}
                       cy={getYCoord(snookerSeries[hoverIndex])}
-                      r="4.5"
-                      fill="#9333ea"
+                      r="4"
+                      fill="#64748b"
                       stroke="#ffffff"
-                      strokeWidth="2"
+                      strokeWidth="1.5"
                     />
                     <circle
                       cx={getXCoord(hoverIndex)}
                       cy={getYCoord(poolSeries[hoverIndex])}
-                      r="4.5"
-                      fill="#059669"
+                      r="4"
+                      fill="#0d9488"
                       stroke="#ffffff"
-                      strokeWidth="2"
+                      strokeWidth="1.5"
                     />
                   </>
                 )}
@@ -562,20 +616,20 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
                   <circle
                     cx={getXCoord(hoverIndex)}
                     cy={getYCoord(cafeSeries[hoverIndex])}
-                    r="4.5"
-                    fill="#d97706"
+                    r="4"
+                    fill="#b45309"
                     stroke="#ffffff"
-                    strokeWidth="2"
+                    strokeWidth="1.5"
                   />
                 )}
                 {(activeTab === 'all' || activeTab === 'credit') && (
                   <circle
                     cx={getXCoord(hoverIndex)}
                     cy={getYCoord(creditSeries[hoverIndex])}
-                    r="4.5"
-                    fill="#e11d48"
+                    r="4"
+                    fill="#991b1b"
                     stroke="#ffffff"
-                    strokeWidth="2"
+                    strokeWidth="1.5"
                   />
                 )}
               </g>
@@ -707,7 +761,7 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
                 Overall Total Sales
               </span>
-              <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-700">
+              <span className="p-1.5 rounded-lg bg-slate-100 text-slate-800">
                 <TrendingUp className="w-4 h-4" />
               </span>
             </div>
@@ -715,7 +769,7 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
               <span className="text-2xl font-black text-slate-900 font-display">
                 ₹{totals.totalSales.toLocaleString('en-IN')}
               </span>
-              <p className="text-xs text-indigo-600 font-bold mt-0.5">
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
                 Full lounge revenue billed
               </p>
             </div>
@@ -726,8 +780,8 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
             <svg viewBox="0 0 200 42" className="w-full h-10 overflow-hidden">
               <defs>
                 <linearGradient id="spark-total" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.2" />
-                  <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.0" />
+                  <stop offset="0%" stopColor="#0f172a" stopOpacity="0.08" />
+                  <stop offset="100%" stopColor="#0f172a" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
               <path
@@ -737,8 +791,8 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
               <path
                 d={buildSparklinePath(totalSeries, 200, 42)}
                 fill="none"
-                stroke="#4f46e5"
-                strokeWidth="2.2"
+                stroke="#0f172a"
+                strokeWidth="1.75"
                 strokeLinecap="round"
               />
             </svg>
@@ -756,7 +810,7 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
                 Snooker &amp; Pool Stations
               </span>
-              <span className="p-1.5 rounded-lg bg-purple-50 text-purple-700">
+              <span className="p-1.5 rounded-lg bg-slate-100 text-slate-800">
                 <Layers className="w-4 h-4" />
               </span>
             </div>
@@ -765,11 +819,11 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
                 ₹{(totals.snookerSales + totals.poolSales).toLocaleString('en-IN')}
               </span>
               <div className="flex items-center gap-2 text-xs font-semibold mt-0.5">
-                <span className="text-purple-700 font-bold">
+                <span className="text-slate-600 font-bold">
                   Snooker: ₹{totals.snookerSales.toLocaleString('en-IN')}
                 </span>
                 <span className="text-slate-300">•</span>
-                <span className="text-emerald-700 font-bold">
+                <span className="text-teal-700 font-bold">
                   Pool: ₹{totals.poolSales.toLocaleString('en-IN')}
                 </span>
               </div>
@@ -782,21 +836,21 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
               <path
                 d={buildSparklinePath(snookerSeries, 200, 42, Math.max(...snookerSeries, ...poolSeries, 1))}
                 fill="none"
-                stroke="#9333ea"
-                strokeWidth="2"
+                stroke="#64748b"
+                strokeWidth="1.75"
                 strokeLinecap="round"
               />
               <path
                 d={buildSparklinePath(poolSeries, 200, 42, Math.max(...snookerSeries, ...poolSeries, 1))}
                 fill="none"
-                stroke="#059669"
-                strokeWidth="2"
+                stroke="#0d9488"
+                strokeWidth="1.75"
                 strokeLinecap="round"
               />
             </svg>
             <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono mt-1">
-              <span className="text-purple-600 font-bold">● Snooker</span>
-              <span className="text-emerald-600 font-bold">● Pool</span>
+              <span className="text-slate-600 font-bold">● Snooker</span>
+              <span className="text-teal-700 font-bold">● Pool</span>
             </div>
           </div>
         </div>
@@ -808,7 +862,7 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
                 Cafe &amp; Kitchen Sales
               </span>
-              <span className="p-1.5 rounded-lg bg-amber-50 text-amber-700">
+              <span className="p-1.5 rounded-lg bg-slate-100 text-slate-800">
                 <Coffee className="w-4 h-4" />
               </span>
             </div>
@@ -816,7 +870,7 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
               <span className="text-2xl font-black text-slate-900 font-display">
                 ₹{totals.cafeSales.toLocaleString('en-IN')}
               </span>
-              <p className="text-xs text-amber-700 font-semibold mt-0.5">
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
                 Food, shakes &amp; cold beverages
               </p>
             </div>
@@ -827,8 +881,8 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
             <svg viewBox="0 0 200 42" className="w-full h-10 overflow-hidden">
               <defs>
                 <linearGradient id="spark-cafe" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#d97706" stopOpacity="0.2" />
-                  <stop offset="100%" stopColor="#d97706" stopOpacity="0.0" />
+                  <stop offset="0%" stopColor="#b45309" stopOpacity="0.08" />
+                  <stop offset="100%" stopColor="#b45309" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
               <path
@@ -838,8 +892,8 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
               <path
                 d={buildSparklinePath(cafeSeries, 200, 42)}
                 fill="none"
-                stroke="#d97706"
-                strokeWidth="2.2"
+                stroke="#b45309"
+                strokeWidth="1.75"
                 strokeLinecap="round"
               />
             </svg>
@@ -857,15 +911,15 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
                 Credits Extended
               </span>
-              <span className="p-1.5 rounded-lg bg-rose-50 text-rose-700">
+              <span className="p-1.5 rounded-lg bg-slate-100 text-slate-800">
                 <CreditCard className="w-4 h-4" />
               </span>
             </div>
             <div className="mt-2">
-              <span className="text-2xl font-black text-rose-700 font-display">
+              <span className="text-2xl font-black text-slate-900 font-display">
                 ₹{totals.creditSales.toLocaleString('en-IN')}
               </span>
-              <p className="text-xs text-rose-600 font-semibold mt-0.5">
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
                 New credit added in period
               </p>
             </div>
@@ -876,8 +930,8 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
             <svg viewBox="0 0 200 42" className="w-full h-10 overflow-hidden">
               <defs>
                 <linearGradient id="spark-credit" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#e11d48" stopOpacity="0.2" />
-                  <stop offset="100%" stopColor="#e11d48" stopOpacity="0.0" />
+                  <stop offset="0%" stopColor="#991b1b" stopOpacity="0.08" />
+                  <stop offset="100%" stopColor="#991b1b" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
               <path
@@ -887,8 +941,8 @@ export const AnalyticsLineCharts: React.FC<AnalyticsLineChartsProps> = ({ data, 
               <path
                 d={buildSparklinePath(creditSeries, 200, 42)}
                 fill="none"
-                stroke="#e11d48"
-                strokeWidth="2.2"
+                stroke="#991b1b"
+                strokeWidth="1.75"
                 strokeLinecap="round"
               />
             </svg>

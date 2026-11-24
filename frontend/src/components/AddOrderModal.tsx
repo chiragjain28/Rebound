@@ -18,6 +18,81 @@ interface CartItem {
   quantity: number;
 }
 
+const EditableQuantityControl = ({
+  quantity,
+  onChange,
+}: {
+  quantity: number;
+  onChange: (qty: number) => void;
+}) => {
+  const [localVal, setLocalVal] = useState<string>(String(quantity));
+
+  useEffect(() => {
+    setLocalVal(String(quantity));
+  }, [quantity]);
+
+  const commitValue = (valStr: string) => {
+    const parsed = parseInt(valStr, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      onChange(0);
+    } else {
+      onChange(parsed);
+      setLocalVal(String(parsed));
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1 border border-slate-200 rounded-lg p-0.5 bg-slate-50 shadow-2xs">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(0, quantity - 1))}
+        className="p-1 hover:bg-slate-200 text-slate-700 rounded transition-colors cursor-pointer"
+        title="Decrease quantity"
+      >
+        <Minus className="h-3 w-3" />
+      </button>
+
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={localVal}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          const val = e.target.value;
+          if (val === '' || /^\d+$/.test(val)) {
+            setLocalVal(val);
+            if (val !== '') {
+              const num = parseInt(val, 10);
+              if (!isNaN(num) && num > 0) {
+                onChange(num);
+              }
+            }
+          }
+        }}
+        onBlur={() => {
+          commitValue(localVal);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.currentTarget.blur();
+          }
+        }}
+        className="w-10 py-0.5 text-center text-xs font-mono font-black text-slate-900 bg-white border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+      />
+
+      <button
+        type="button"
+        onClick={() => onChange(quantity + 1)}
+        className="p-1 hover:bg-slate-200 text-slate-700 rounded transition-colors cursor-pointer"
+        title="Increase quantity"
+      >
+        <Plus className="h-3 w-3" />
+      </button>
+    </div>
+  );
+};
+
 const CATEGORY_STYLES: Record<string, { bg: string; text: string; border: string; label: string }> = {
   'Cafe': { bg: 'bg-amber-50', text: 'text-amber-800', border: 'border-amber-200', label: 'Café' },
   'Cold Drinks': { bg: 'bg-blue-50', text: 'text-blue-800', border: 'border-blue-200', label: 'Cold Drink' },
@@ -245,30 +320,15 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({
                       {/* Add / Qty Control */}
                       <div className="shrink-0">
                         {cartItem ? (
-                          <div className="flex items-center gap-1.5 border border-slate-200 rounded-lg p-1 bg-slate-50">
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateQty(item, cartItem.quantity - 1)}
-                              className="p-1 hover:bg-slate-200 text-slate-700 rounded transition-colors"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="w-5 text-center text-xs font-mono font-bold text-slate-900">
-                              {cartItem.quantity}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateQty(item, cartItem.quantity + 1)}
-                              className="p-1 hover:bg-slate-200 text-slate-700 rounded transition-colors"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
-                          </div>
+                          <EditableQuantityControl
+                            quantity={cartItem.quantity}
+                            onChange={(newQty) => handleUpdateQty(item, newQty)}
+                          />
                         ) : (
                           <button
                             type="button"
                             onClick={() => handleUpdateQty(item, 1)}
-                            className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                            className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
                           >
                             <Plus className="h-3 w-3 text-slate-500" />
                             Add
@@ -307,22 +367,29 @@ export const AddOrderModal: React.FC<AddOrderModalProps> = ({
                 </div>
               ) : (
                 cart.map((ci) => (
-                  <div key={ci.menuItem.id} className="flex justify-between items-center p-2.5 bg-white rounded-xl border border-slate-200 text-xs shadow-xs">
-                    <div className="flex-1 min-w-0 mr-2">
-                      <p className="font-bold text-slate-900 truncate">{ci.menuItem.name}</p>
-                      <p className="text-[10px] text-slate-500 mt-0.5 font-mono">{ci.quantity} × ₹{ci.menuItem.price.toFixed(2)}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-mono font-bold text-slate-900">
-                        ₹{(ci.quantity * ci.menuItem.price).toFixed(2)}
-                      </span>
+                  <div key={ci.menuItem.id} className="p-2.5 bg-white rounded-xl border border-slate-200 text-xs shadow-xs space-y-2">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0 mr-2">
+                        <p className="font-bold text-slate-900 truncate">{ci.menuItem.name}</p>
+                        <p className="text-[10px] text-slate-500 font-mono">₹{ci.menuItem.price.toFixed(2)} each</p>
+                      </div>
                       <button
                         type="button"
                         onClick={() => handleUpdateQty(ci.menuItem, 0)}
-                        className="text-slate-400 hover:text-rose-600 transition-colors p-1"
+                        className="text-slate-400 hover:text-rose-600 transition-colors p-1 cursor-pointer"
+                        title="Remove item"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                      <EditableQuantityControl
+                        quantity={ci.quantity}
+                        onChange={(newQty) => handleUpdateQty(ci.menuItem, newQty)}
+                      />
+                      <span className="font-mono font-bold text-slate-900 text-xs">
+                        ₹{(ci.quantity * ci.menuItem.price).toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 ))

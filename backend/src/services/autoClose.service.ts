@@ -1,5 +1,6 @@
 import { prisma } from '../index';
 import { broadcast } from '../websocket';
+import { getPlayHourlyRate } from '../utils/pricing';
 
 // Game hourly rates (₹ per hour)
 const GAME_RATES: Record<string, number> = {
@@ -91,10 +92,8 @@ export async function runNightlyAutoClose(
             : (playOperationalCutoff.getTime() <= now.getTime() ? playOperationalCutoff : now);
 
           const durationMinutes = Math.max(1, Math.round((playEndTime.getTime() - playStart.getTime()) / 60000));
-          const hourlyRate = (play as any)?.table?.ratePerHour || GAME_RATES[play.gameType] || 160;
-          const playCost = play.gameType === 'PS4'
-            ? Math.round((durationMinutes / 60) * hourlyRate * (play.playerCount || 1))
-            : Math.round((durationMinutes / 60) * hourlyRate);
+          const hourlyRate = getPlayHourlyRate(play);
+          const playCost = Math.round((durationMinutes / 60) * hourlyRate);
 
           await prisma.tablePlay.update({
             where: { id: play.id },
@@ -119,9 +118,16 @@ export async function runNightlyAutoClose(
       const totalPaid = visit.payments.reduce((sum, p) => sum + p.amount, 0);
       const remainingUnpaid = Math.max(0, Math.round((visitTotal - totalPaid) * 100) / 100);
 
-      // 3. If there is an unpaid balance, record a CreditRecord (Udhar) for this customer & visit
+      const customerPhone = visit.customer?.phone || '';
+      const isWalkIn = Boolean(
+        customerPhone.startsWith('WALK-') || customerPhone.replace(/\D/g, '').length < 10
+      );
+
+      // 3. If there is an unpaid balance:
+      // - For registered customers: Record a CreditRecord (Udhar)
+      // - For walk-in customers: DO NOT record CreditRecord (walk-ins cannot hold credit/udhar)
       let creditRecordId: number | null = null;
-      if (remainingUnpaid > 0) {
+      if (remainingUnpaid > 0 && !isWalkIn) {
         const dateStr = visitEndTime.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
         const cr = await prisma.creditRecord.create({
           data: {
@@ -137,7 +143,14 @@ export async function runNightlyAutoClose(
       }
 
       // 4. Update the visit to completed
-      const paymentStatus = remainingUnpaid === 0 ? 'paid' : (totalPaid > 0 ? 'partially_paid' : 'credit');
+      // Payment status:
+      // - If fully paid: 'paid'
+      // - If unpaid & walk-in: 'unsettled'
+      // - If unpaid & registered: 'partially_paid' (if partial) or 'credit'
+      const paymentStatus = remainingUnpaid === 0 
+        ? 'paid' 
+        : (isWalkIn ? 'unsettled' : (totalPaid > 0 ? 'partially_paid' : 'credit'));
+
       const updatedVisit = await prisma.visit.update({
         where: { id: visit.id },
         data: {

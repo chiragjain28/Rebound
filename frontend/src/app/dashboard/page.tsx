@@ -39,6 +39,7 @@ interface ActivePlayInfo {
   visitId: string;
   tableId: number | null;
   gameType: string;
+  playerCount?: number;
   stationName: string;
   tableNumber?: number;
   startTime: string;
@@ -519,7 +520,11 @@ export default function DashboardPage() {
                           <span className={`w-1.5 h-1.5 rounded-full ${
                             isSnooker ? 'bg-purple-600' : isPS4 ? 'bg-indigo-600' : 'bg-blue-600'
                           }`} />
-                          {play.stationName}
+                          {play.stationName}{isPS4 && (
+                            <span className="font-mono text-[9px] font-bold text-indigo-700 bg-white/80 px-1 py-0.2 rounded border border-indigo-200">
+                              {play.playerCount || 1}P
+                            </span>
+                          )}
                         </span>
 
                         <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-200">

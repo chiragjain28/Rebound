@@ -3,6 +3,7 @@ import { prisma } from '../index';
 import { authenticateToken } from '../middleware/auth';
 import { broadcast } from '../websocket';
 import { runNightlyAutoClose } from '../services/autoClose.service';
+import { getPlayHourlyRate } from '../utils/pricing';
 
 const router = Router();
 
@@ -317,6 +318,9 @@ router.post('/:id/table/start', authenticateToken, async (req: any, res) => {
     }
 
     const playType = gameType || table?.gameType || 'Pool';
+    const parsedPlayerCount = playType === 'PS4'
+      ? Math.max(1, Math.min(4, parseInt(playerCount) || 1))
+      : 1;
     const now = new Date();
 
     const [tablePlay, updatedTable] = await prisma.$transaction([
@@ -325,7 +329,7 @@ router.post('/:id/table/start', authenticateToken, async (req: any, res) => {
           visitId,
           tableId: table ? table.id : null,
           gameType: playType,
-          playerCount: parseInt(playerCount) || 1,
+          playerCount: parsedPlayerCount,
           startTime: now,
           createdBy: staffUsername
         },
@@ -368,15 +372,11 @@ router.post('/:id/table/end', authenticateToken, async (req, res) => {
 
     const endTime = req.body.endTime ? new Date(req.body.endTime) : new Date();
     const durationMinutes = Math.max(1, (endTime.getTime() - new Date(play.startTime).getTime()) / 60000);
-    const hourlyRate = (play as any)?.table?.ratePerHour || GAME_RATES[play.gameType] || 160;
+    const hourlyRate = getPlayHourlyRate(play);
 
     let finalCost = overrideCost !== undefined ? parseFloat(overrideCost) : 0;
     if (overrideCost === undefined) {
-      if (play.gameType === 'PS4') {
-        finalCost = Math.round((durationMinutes / 60) * hourlyRate * (play.playerCount || 1));
-      } else {
-        finalCost = Math.round((durationMinutes / 60) * hourlyRate);
-      }
+      finalCost = Math.round((durationMinutes / 60) * hourlyRate);
     }
 
     const [updatedPlay, updatedTable] = await prisma.$transaction([
@@ -484,6 +484,305 @@ router.delete('/:id/table-play/:playId', authenticateToken, async (req, res) => 
   }
 });
 
+/**
+ * Helper: Recalculates all financial totals (tablesTotal, itemsTotal, visitTotal, balanceDue)
+ * for a specific visit inside an existing Prisma transaction or client.
+ */
+async function recalculateVisitTotals(tx: any, visitId: string) {
+  const [allPlays, visit] = await Promise.all([
+    tx.tablePlay.findMany({ where: { visitId } }),
+    tx.visit.findUnique({
+      where: { id: visitId },
+      include: { orders: true, payments: true }
+    })
+  ]);
+
+  if (!visit) return null;
+
+  const tablesTotal = allPlays.reduce((sum: number, p: any) => sum + (p.cost || 0), 0);
+  const itemsTotal = visit.orders.reduce((sum: number, o: any) => sum + (o.quantity * o.price), 0);
+  const visitTotal = Math.round((itemsTotal + tablesTotal + (visit.customAmount || 0)) * 100) / 100;
+  const paidAmount = visit.payments.reduce((sum: number, p: any) => sum + p.amount, 0);
+  const balanceDue = Math.max(0, Math.round((visitTotal - paidAmount) * 100) / 100);
+
+  const updated = await tx.visit.update({
+    where: { id: visitId },
+    data: { tablesTotal, itemsTotal, visitTotal, balanceDue }
+  });
+
+  return updated;
+}
+
+/**
+ * Helper: Finds an active visit for a customer or creates a new active visit if none exists.
+ */
+async function getOrCreateActiveVisit(tx: any, customerId: number, staffUsername: string) {
+  let visit = await tx.visit.findFirst({
+    where: {
+      customerId,
+      status: 'active'
+    }
+  });
+
+  if (!visit) {
+    const customer = await tx.customer.findUnique({ where: { id: customerId } });
+    if (!customer) throw new Error(`Customer with ID ${customerId} not found`);
+
+    const now = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const timestamp = `${pad(now.getDate())}${pad(now.getMonth() + 1)}${now.getFullYear()}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const cleanName = customer.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const visitId = `V_${timestamp}_${cleanName}`;
+
+    visit = await tx.visit.create({
+      data: {
+        id: visitId,
+        customerId: customer.id,
+        staffUsername,
+        startTime: now,
+        status: 'active'
+      }
+    });
+
+    await tx.customer.update({
+      where: { id: customer.id },
+      data: { totalVisits: { increment: 1 } }
+    });
+  }
+
+  return visit;
+}
+
+// 7b. Transfer TablePlay to another customer (e.g. loser pays rule)
+router.post('/table-play/:playId/transfer', authenticateToken, async (req: any, res) => {
+  const playId = parseInt(req.params.playId);
+  const { targetCustomerId } = req.body;
+  const staffUsername = req.user?.username || 'chirag';
+
+  if (!targetCustomerId || isNaN(parseInt(targetCustomerId))) {
+    return res.status(400).json({ error: 'Valid target customer ID is required' });
+  }
+
+  try {
+    const play = await prisma.tablePlay.findUnique({
+      where: { id: playId },
+      include: {
+        visit: { include: { customer: true } },
+        table: true
+      }
+    });
+
+    if (!play) {
+      return res.status(404).json({ error: 'Table play record not found' });
+    }
+
+    if (play.visit.customerId === parseInt(targetCustomerId)) {
+      return res.status(400).json({ error: 'Target customer cannot be the same as current player' });
+    }
+
+    const targetCustomer = await prisma.customer.findUnique({
+      where: { id: parseInt(targetCustomerId) }
+    });
+    if (!targetCustomer) {
+      return res.status(404).json({ error: 'Target customer not found in database' });
+    }
+
+    const sourceVisitId = play.visitId;
+    let targetVisitId = '';
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Get or create active visit for target customer
+      const targetVisit = await getOrCreateActiveVisit(tx, targetCustomer.id, staffUsername);
+      targetVisitId = targetVisit.id;
+
+      // 2. Re-parent TablePlay to target visit
+      await tx.tablePlay.update({
+        where: { id: play.id },
+        data: { visitId: targetVisit.id }
+      });
+
+      // 3. Recalculate financial totals for both source and target visits
+      await recalculateVisitTotals(tx, sourceVisitId);
+      await recalculateVisitTotals(tx, targetVisitId);
+    });
+
+    // Broadcast WebSocket updates for real-time reactivity
+    broadcast({ type: 'TABLE_PLAY_UPDATE', playId, sourceVisitId, targetVisitId });
+    broadcast({ type: 'VISIT_UPDATE', visitId: sourceVisitId });
+    broadcast({ type: 'VISIT_UPDATE', visitId: targetVisitId });
+
+    res.json({
+      success: true,
+      message: `Table play transferred successfully to ${targetCustomer.name}`,
+      sourceVisitId,
+      targetVisitId,
+      targetCustomerName: targetCustomer.name
+    });
+  } catch (error: any) {
+    console.error('Error transferring table play:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 7c. Split TablePlay among multiple players (2, 3, 4+ players)
+router.post('/table-play/:playId/split', authenticateToken, async (req: any, res) => {
+  const playId = parseInt(req.params.playId);
+  const { splits } = req.body;
+  const staffUsername = req.user?.username || 'chirag';
+
+  if (!Array.isArray(splits) || splits.length < 2) {
+    return res.status(400).json({ error: 'At least 2 players are required to split a table play' });
+  }
+
+  try {
+    const play = await prisma.tablePlay.findUnique({
+      where: { id: playId },
+      include: {
+        visit: { include: { customer: true } },
+        table: true
+      }
+    });
+
+    if (!play) {
+      return res.status(404).json({ error: 'Table play record not found' });
+    }
+
+    // If play is still running, stop it and lock its cost first
+    let totalCost = play.cost;
+    const now = new Date();
+    if (!play.endTime) {
+      const durationMinutes = Math.max(1, (now.getTime() - new Date(play.startTime).getTime()) / 60000);
+      const hourlyRate = getPlayHourlyRate(play);
+      totalCost = Math.round((durationMinutes / 60) * hourlyRate);
+
+      await prisma.$transaction([
+        prisma.tablePlay.update({
+          where: { id: play.id },
+          data: { endTime: now, cost: totalCost }
+        }),
+        ...(play.tableId ? [
+          prisma.table.update({
+            where: { id: play.tableId },
+            data: { status: 'available' }
+          })
+        ] : [])
+      ]);
+      if (play.tableId) {
+        broadcast({ type: 'TABLE_UPDATE', table: { id: play.tableId, status: 'available' } });
+      }
+    }
+
+    if (totalCost <= 0) {
+      return res.status(400).json({ error: 'Table play cost is ₹0. Cannot split zero amount.' });
+    }
+
+    // Validate splits format and sum
+    let splitSum = 0;
+    const customerIdsSeen = new Set<number>();
+
+    for (const s of splits) {
+      const cId = parseInt(s.customerId);
+      const amt = parseFloat(s.amount);
+      if (isNaN(cId) || isNaN(amt) || amt <= 0) {
+        return res.status(400).json({ error: 'Every player must have a valid customer ID and an amount greater than 0' });
+      }
+      if (customerIdsSeen.has(cId)) {
+        return res.status(400).json({ error: 'Duplicate customer found in split list. Each player must be unique.' });
+      }
+      customerIdsSeen.add(cId);
+      splitSum += amt;
+    }
+
+    // Floating-point comparison tolerance (0.05)
+    if (Math.abs(splitSum - totalCost) > 0.05) {
+      return res.status(400).json({
+        error: `Sum of split amounts (₹${splitSum.toFixed(2)}) must equal total table cost (₹${totalCost.toFixed(2)})`
+      });
+    }
+
+    // Verify all customers exist
+    const customers = await prisma.customer.findMany({
+      where: { id: { in: Array.from(customerIdsSeen) } }
+    });
+    if (customers.length !== customerIdsSeen.size) {
+      return res.status(404).json({ error: 'One or more selected co-players could not be found in database' });
+    }
+
+    const sourceCustomerId = play.visit.customerId;
+    const sourceVisitId = play.visitId;
+    const affectedVisitIds = new Set<string>([sourceVisitId]);
+
+    await prisma.$transaction(async (tx) => {
+      // Find the split for the source player
+      const sourceSplit = splits.find(s => parseInt(s.customerId) === sourceCustomerId);
+      const otherSplits = splits.filter(s => parseInt(s.customerId) !== sourceCustomerId);
+
+      if (sourceSplit) {
+        // Update original play row with source customer's portion
+        await tx.tablePlay.update({
+          where: { id: play.id },
+          data: { cost: Math.round(parseFloat(sourceSplit.amount) * 100) / 100 }
+        });
+      } else {
+        // Source customer pays 0, so first other split re-parents original row
+        const firstCoSplit = otherSplits[0];
+        const firstCoVisit = await getOrCreateActiveVisit(tx, parseInt(firstCoSplit.customerId), staffUsername);
+        affectedVisitIds.add(firstCoVisit.id);
+
+        await tx.tablePlay.update({
+          where: { id: play.id },
+          data: {
+            visitId: firstCoVisit.id,
+            cost: Math.round(parseFloat(firstCoSplit.amount) * 100) / 100
+          }
+        });
+        otherSplits.shift();
+      }
+
+      // For every other co-player, create a split TablePlay record in their active visit
+      for (const coSplit of otherSplits) {
+        const cId = parseInt(coSplit.customerId);
+        const coVisit = await getOrCreateActiveVisit(tx, cId, staffUsername);
+        affectedVisitIds.add(coVisit.id);
+
+        await tx.tablePlay.create({
+          data: {
+            visitId: coVisit.id,
+            tableId: play.tableId,
+            gameType: play.gameType,
+            playerCount: play.playerCount,
+            startTime: play.startTime,
+            endTime: play.endTime || now,
+            cost: Math.round(parseFloat(coSplit.amount) * 100) / 100,
+            createdBy: staffUsername
+          }
+        });
+      }
+
+      // Recalculate totals for all affected visits
+      for (const vId of affectedVisitIds) {
+        await recalculateVisitTotals(tx, vId);
+      }
+    });
+
+    // Broadcast WebSocket updates for all affected visits
+    for (const vId of affectedVisitIds) {
+      broadcast({ type: 'VISIT_UPDATE', visitId: vId });
+    }
+    broadcast({ type: 'TABLE_PLAY_UPDATE', playId });
+
+    res.json({
+      success: true,
+      message: `Table play bill of ₹${totalCost.toFixed(2)} split successfully across ${splits.length} players`,
+      totalCost,
+      splitsCount: splits.length
+    });
+  } catch (error: any) {
+    console.error('Error splitting table play:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 8. Close Visit (allows full payment, partial payment, or converting unpaid balance to credit)
 router.post('/:id/close', authenticateToken, async (req, res) => {
   const visitId = req.params.id;
@@ -510,10 +809,8 @@ router.post('/:id/close', authenticateToken, async (req, res) => {
     for (const play of visit.tablePlays) {
       if (!play.endTime) {
         const durationMinutes = Math.max(1, (now.getTime() - new Date(play.startTime).getTime()) / 60000);
-        const hourlyRate = (play as any)?.table?.ratePerHour || GAME_RATES[play.gameType] || 160;
-        const playCost = play.gameType === 'PS4'
-          ? Math.round((durationMinutes / 60) * hourlyRate * (play.playerCount || 1))
-          : Math.round((durationMinutes / 60) * hourlyRate);
+        const hourlyRate = getPlayHourlyRate(play);
+        const playCost = Math.round((durationMinutes / 60) * hourlyRate);
 
         await prisma.tablePlay.update({
           where: { id: play.id },
@@ -535,27 +832,90 @@ router.post('/:id/close', authenticateToken, async (req, res) => {
     const itemsTotal = visit.orders.reduce((sum, o) => sum + (o.quantity * o.price), 0);
     const visitTotal = itemsTotal + tablesTotal + visit.customAmount;
 
-    // 3. Record new payment if provided
+    // 3. Record new payment if provided (smart split between visit and past credit)
     let newPayment = null;
+    let excessForCredit = 0;
     const numPay = parseFloat(paymentAmount);
+    
+    // Existing payments made prior to close
+    const priorPaid = visit.payments.reduce((sum, p) => sum + p.amount, 0);
+    const visitDueBeforePay = Math.max(0, visitTotal - priorPaid);
+
     if (!isNaN(numPay) && numPay > 0) {
-      newPayment = await prisma.payment.create({
-        data: {
-          customerId: visit.customerId,
-          visitId: visit.id,
-          amount: numPay,
-          method: paymentMethod || 'Cash',
-          type: 'visit_payment'
+      // Allocate payment to current visit first (up to visitDueBeforePay)
+      const payForVisit = Math.min(numPay, visitDueBeforePay);
+      excessForCredit = Math.max(0, Math.round((numPay - payForVisit) * 100) / 100);
+
+      if (payForVisit > 0) {
+        newPayment = await prisma.payment.create({
+          data: {
+            customerId: visit.customerId,
+            visitId: visit.id,
+            amount: payForVisit,
+            method: paymentMethod || 'Cash',
+            type: 'visit_payment'
+          }
+        });
+      }
+
+      // If customer paid more than visit total, apply excess to settle past unpaid credit records
+      if (excessForCredit > 0) {
+        let remainingToSettle = excessForCredit;
+        const unpaidCredits = await prisma.creditRecord.findMany({
+          where: {
+            customerId: visit.customerId,
+            status: 'unpaid',
+            visitId: { not: visit.id }
+          },
+          orderBy: { createdAt: 'asc' }
+        });
+
+        for (const cr of unpaidCredits) {
+          if (remainingToSettle <= 0) break;
+          const due = cr.amount - cr.settledAmount;
+          if (remainingToSettle >= due) {
+            remainingToSettle -= due;
+            await prisma.creditRecord.update({
+              where: { id: cr.id },
+              data: { status: 'paid', settledAmount: cr.amount }
+            });
+          } else {
+            await prisma.creditRecord.update({
+              where: { id: cr.id },
+              data: { settledAmount: cr.settledAmount + remainingToSettle }
+            });
+            remainingToSettle = 0;
+          }
         }
-      });
+
+        const actuallySettledCredit = excessForCredit - remainingToSettle;
+        if (actuallySettledCredit > 0) {
+          await prisma.payment.create({
+            data: {
+              customerId: visit.customerId,
+              amount: actuallySettledCredit,
+              method: paymentMethod || 'Cash',
+              type: 'credit_settlement'
+            }
+          });
+        }
+      }
     }
 
-    const totalPaid = visit.payments.reduce((sum, p) => sum + p.amount, 0) + (newPayment ? newPayment.amount : 0);
+    const totalPaid = priorPaid + (newPayment ? newPayment.amount : 0);
     const remainingBalance = Math.max(0, visitTotal - totalPaid);
 
-    // 4. Record credit (unpaid amount) if any
+    // 4. Record credit (unpaid amount) if any - WITH STRICT WALK-IN CREDIT SHIELD
     let recordedCredit = 0;
     if (remainingBalance > 0) {
+      // Check if customer is an unregistered walk-in (starts with WALK- or has no valid 10-digit phone)
+      const customerPhone = visit.customer?.phone || '';
+      if (customerPhone.startsWith('WALK-') || customerPhone.replace(/\D/g, '').length < 10) {
+        return res.status(400).json({
+          error: `Credit (Udhar) cannot be extended to an unregistered walk-in customer (${visit.customer?.name || 'Customer'}). Please register this customer with their 10-digit mobile number before extending credit, or settle the remaining balance of ₹${remainingBalance.toFixed(2)} in full via Cash or UPI.`
+        });
+      }
+
       recordedCredit = remainingBalance;
       await prisma.creditRecord.create({
         data: {
@@ -618,6 +978,151 @@ router.post('/:id/close', authenticateToken, async (req, res) => {
   } catch (error: any) {
     console.error('Error closing visit:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// 8b. POST /api/visits/:id/settle-unsettled - Settle an unsettled auto-closed visit with Cash/UPI
+router.post('/:id/settle-unsettled', authenticateToken, async (req, res) => {
+  const visitId = req.params.id;
+  const { paymentAmount, paymentMethod } = req.body;
+  const numPay = parseFloat(paymentAmount);
+
+  if (isNaN(numPay) || numPay <= 0) {
+    return res.status(400).json({ error: 'Valid payment amount is required' });
+  }
+
+  try {
+    const visit = await prisma.visit.findUnique({
+      where: { id: visitId },
+      include: { payments: true, customer: true }
+    });
+
+    if (!visit) {
+      return res.status(404).json({ error: 'Visit not found' });
+    }
+
+    // Record payment
+    await prisma.payment.create({
+      data: {
+        customerId: visit.customerId,
+        visitId: visit.id,
+        amount: numPay,
+        method: paymentMethod || 'Cash',
+        type: 'visit_payment'
+      }
+    });
+
+    // Recompute visit totals
+    const allPayments = await prisma.payment.findMany({ where: { visitId: visit.id } });
+    const totalPaid = allPayments.reduce((sum, p) => sum + p.amount, 0);
+    const balanceDue = Math.max(0, visit.visitTotal - totalPaid);
+    const paymentStatus = balanceDue === 0 ? 'paid' : 'partially_paid';
+
+    const updatedVisit = await prisma.visit.update({
+      where: { id: visit.id },
+      data: {
+        paidAmount: totalPaid,
+        balanceDue,
+        paymentStatus
+      },
+      include: {
+        customer: true,
+        orders: { include: { menuItem: true } },
+        tablePlays: { include: { table: true } },
+        payments: true,
+        creditRecords: true
+      }
+    });
+
+    // Update customer lifetime stats
+    const customerStats = await prisma.$queryRaw<any[]>`
+      SELECT
+        COALESCE(SUM(cr.amount - cr."settledAmount"), 0) as current_credit_due,
+        COALESCE((SELECT SUM("visitTotal") FROM "Visit" WHERE "customerId" = ${visit.customerId}), 0) as lifetime_spend,
+        COALESCE((SELECT SUM(amount) FROM "Payment" WHERE "customerId" = ${visit.customerId}), 0) as lifetime_paid
+      FROM "CreditRecord" cr
+      WHERE cr."customerId" = ${visit.customerId} AND cr.status = 'unpaid'
+    `;
+
+    if (customerStats && customerStats.length > 0) {
+      await prisma.customer.update({
+        where: { id: visit.customerId },
+        data: {
+          currentCreditDue: Number(customerStats[0].current_credit_due) || 0,
+          lifetimeSpend: Number(customerStats[0].lifetime_spend) || 0,
+          lifetimePaid: Number(customerStats[0].lifetime_paid) || 0
+        }
+      });
+    }
+
+    broadcast({ type: 'VISIT_UPDATE', visit: updatedVisit });
+    res.json(updatedVisit);
+  } catch (err: any) {
+    console.error('Error settling unsettled visit:', err);
+    res.status(500).json({ error: err.message || 'Failed to settle visit' });
+  }
+});
+
+// 8c. POST /api/visits/:id/mark-loss - Mark an unpaid walk-in visit as written-off loss
+router.post('/:id/mark-loss', authenticateToken, async (req, res) => {
+  const visitId = req.params.id;
+
+  try {
+    const visit = await prisma.visit.findUnique({
+      where: { id: visitId },
+      include: { customer: true }
+    });
+
+    if (!visit) {
+      return res.status(404).json({ error: 'Visit not found' });
+    }
+
+    const updatedVisit = await prisma.visit.update({
+      where: { id: visit.id },
+      data: {
+        paymentStatus: 'loss',
+        balanceDue: 0
+      },
+      include: {
+        customer: true,
+        orders: { include: { menuItem: true } },
+        tablePlays: { include: { table: true } },
+        payments: true,
+        creditRecords: true
+      }
+    });
+
+    // Remove any CreditRecord for this visit
+    await prisma.creditRecord.deleteMany({
+      where: { visitId: visit.id }
+    });
+
+    // Recalculate customer credit due
+    const customerStats = await prisma.$queryRaw<any[]>`
+      SELECT
+        COALESCE(SUM(cr.amount - cr."settledAmount"), 0) as current_credit_due,
+        COALESCE((SELECT SUM("visitTotal") FROM "Visit" WHERE "customerId" = ${visit.customerId}), 0) as lifetime_spend,
+        COALESCE((SELECT SUM(amount) FROM "Payment" WHERE "customerId" = ${visit.customerId}), 0) as lifetime_paid
+      FROM "CreditRecord" cr
+      WHERE cr."customerId" = ${visit.customerId} AND cr.status = 'unpaid'
+    `;
+
+    if (customerStats && customerStats.length > 0) {
+      await prisma.customer.update({
+        where: { id: visit.customerId },
+        data: {
+          currentCreditDue: Number(customerStats[0].current_credit_due) || 0,
+          lifetimeSpend: Number(customerStats[0].lifetime_spend) || 0,
+          lifetimePaid: Number(customerStats[0].lifetime_paid) || 0
+        }
+      });
+    }
+
+    broadcast({ type: 'VISIT_UPDATE', visit: updatedVisit });
+    res.json(updatedVisit);
+  } catch (err: any) {
+    console.error('Error marking visit as loss:', err);
+    res.status(500).json({ error: err.message || 'Failed to mark visit as loss' });
   }
 });
 
@@ -756,8 +1261,15 @@ router.post('/quick-sale', authenticateToken, async (req: any, res) => {
       console.error('Failed to deduct inventory for quick-order:', invErr);
     }
 
-    broadcast({ type: 'QUICK_SALE', visit, session: visit });
-    res.status(201).json(visit);
+    const responsePayload = {
+      ...visit,
+      totalBill: visit.visitTotal,
+      customerName: customer.name,
+      customerPhone: customer.phone.startsWith('QUICK-') ? null : customer.phone
+    };
+
+    broadcast({ type: 'QUICK_SALE', visit: responsePayload, session: responsePayload });
+    res.status(201).json(responsePayload);
   } catch (error: any) {
     console.error('Error processing quick sale:', error);
     res.status(500).json({ error: error.message });
@@ -812,7 +1324,7 @@ router.post('/:id/switch-table', authenticateToken, async (req: any, res) => {
       if (runningPlay) {
         const start = new Date(runningPlay.startTime);
         const durationHours = Math.max(0, (now.getTime() - start.getTime()) / (1000 * 60 * 60));
-        const rate = (runningPlay as any)?.table?.ratePerHour || GAME_RATES[runningPlay.gameType] || 0;
+        const rate = getPlayHourlyRate(runningPlay);
         const cost = durationHours * rate;
 
         await tx.tablePlay.update({

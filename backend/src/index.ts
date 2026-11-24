@@ -19,6 +19,7 @@ import udharRoutes from './routes/udhar.routes';
 import tableRoutes from './routes/table.routes';
 import customerRoutes from './routes/customer.routes';
 import inventoryRoutes from './routes/inventory.routes';
+import reviewRoutes from './routes/review.routes';
 import { initNightlyAutoCloseJob } from './jobs/nightlyAutoClose';
 
 // Load .env.local first (dev overrides), then fallback to .env (prod defaults)
@@ -88,6 +89,7 @@ app.use('/api/udhar', udharRoutes);
 app.use('/api/tables', tableRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
