@@ -18,11 +18,13 @@ import {
   PanelLeftOpen,
   Menu,
   X,
+  QrCode,
 } from 'lucide-react';
 import { AddItemsModal } from './AddItemsModal';
 import { AddTablesModal } from './AddTablesModal';
 import { CustomerManagerModal } from './CustomerManagerModal';
 import { QuickSaleModal } from './QuickSaleModal';
+import { ReviewQrModal } from './ReviewQrModal';
 
 const SIDEBAR_STORAGE_KEY = 'rebound_sidebar_collapsed';
 
@@ -38,6 +40,7 @@ export const Sidebar: React.FC = () => {
   const [showAddTables, setShowAddTables] = useState(false);
   const [showCustomers, setShowCustomers] = useState(false);
   const [showQuickSale, setShowQuickSale] = useState(false);
+  const [showReviewQr, setShowReviewQr] = useState(false);
 
   // Restore saved collapse preference safely on client mount
   useEffect(() => {
@@ -126,6 +129,15 @@ export const Sidebar: React.FC = () => {
       isActive: false,
       onClick: () => {
         setShowCustomers(true);
+        setMobileOpen(false);
+      },
+    },
+    {
+      label: 'Google Review QR',
+      Icon: QrCode,
+      isActive: false,
+      onClick: () => {
+        setShowReviewQr(true);
         setMobileOpen(false);
       },
     },
@@ -411,6 +423,12 @@ export const Sidebar: React.FC = () => {
       {showCustomers && (
         <CustomerManagerModal
           onClose={() => setShowCustomers(false)}
+        />
+      )}
+
+      {showReviewQr && (
+        <ReviewQrModal
+          onClose={() => setShowReviewQr(false)}
         />
       )}
     </>

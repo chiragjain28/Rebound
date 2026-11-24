@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../index';
 import { authenticateToken } from '../middleware/auth';
+import { getPlayHourlyRate } from '../utils/pricing';
 
 const router = Router();
 
@@ -18,7 +19,13 @@ async function handleCustomerSearch(req: any, res: any) {
             { firstName: { contains: tok, mode: 'insensitive' } },
             { lastName: { contains: tok, mode: 'insensitive' } },
             { name: { contains: tok, mode: 'insensitive' } },
-            { phone: { contains: tok } }
+            { 
+              AND: [
+                { phone: { contains: tok } },
+                { NOT: { phone: { startsWith: 'WALK-' } } },
+                { NOT: { phone: { startsWith: 'QUICK-' } } }
+              ]
+            }
           ]
         }))
       };
@@ -188,9 +195,8 @@ router.get('/:phone/history', authenticateToken, async (req, res) => {
         let cost = tp.cost;
         if (!tp.endTime) {
           const elapsedHours = Math.max(0, (Date.now() - new Date(tp.startTime).getTime()) / (1000 * 60 * 60));
-          const rate = (tp.table?.gameType === 'MidSnooker' ? 220 : 160);
-          cost = tp.gameType === 'PS4' ? elapsedHours * 80 * (tp.playerCount || 1) : elapsedHours * rate;
-          cost = Math.round(cost * 100) / 100;
+          const rate = getPlayHourlyRate(tp);
+          cost = Math.round(elapsedHours * rate * 100) / 100;
         }
         return {
           id: tp.id,
@@ -501,17 +507,37 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Phone number is required' });
     }
 
-    const cleanPhone = phone.trim();
+    // Standardize to strictly 10 digits
+    const cleanPhone = phone.trim().replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile phone number' });
+    }
+
     const cleanFirst = firstName.trim();
     const cleanLast = (lastName || '').trim();
     const fullName = (cleanFirst + ' ' + cleanLast).trim();
 
-    const existing = await prisma.customer.findUnique({
-      where: { phone: cleanPhone }
+    // Strict Uniqueness Check: Check exact or 10-digit phone (ignore WALK- and QUICK- placeholders)
+    const existing = await prisma.customer.findFirst({
+      where: {
+        AND: [
+          { NOT: { phone: { startsWith: 'WALK-' } } },
+          { NOT: { phone: { startsWith: 'QUICK-' } } },
+          {
+            OR: [
+              { phone: cleanPhone },
+              { phone: { endsWith: cleanPhone } }
+            ]
+          }
+        ]
+      }
     });
 
     if (existing) {
-      return res.status(400).json({ error: `Customer with phone ${cleanPhone} already exists (${existing.name})` });
+      return res.status(409).json({ 
+        error: `Customer already exists with phone number ${cleanPhone} (${existing.name}). Duplicate phone numbers are strictly prohibited.`,
+        existingCustomer: existing
+      });
     }
 
     const customer = await prisma.customer.create({
@@ -525,6 +551,11 @@ router.post('/', authenticateToken, async (req, res) => {
 
     res.status(201).json(customer);
   } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        error: 'A customer with this phone number already exists in the database. Duplicate phone numbers are strictly prohibited.'
+      });
+    }
     res.status(500).json({ error: error.message });
   }
 });
@@ -562,6 +593,96 @@ router.put('/:phone', authenticateToken, async (req, res) => {
 
     res.json(updatedCustomer);
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5b. POST /api/customers/:idOrPhone/register-walkin - Upgrade a temporary walk-in to a permanent registered customer
+router.post('/:idOrPhone/register-walkin', authenticateToken, async (req, res) => {
+  try {
+    const idOrPhone = decodeURIComponent(req.params.idOrPhone.trim());
+    const { phone, firstName, lastName } = req.body;
+
+    if (!phone || !phone.trim()) {
+      return res.status(400).json({ error: 'A valid 10-digit mobile phone number is required to register.' });
+    }
+
+    const cleanPhone = phone.trim().replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile phone number.' });
+    }
+
+    // Find the customer by ID or phone
+    const isId = !isNaN(Number(idOrPhone)) && Number(idOrPhone) > 0 && Number(idOrPhone) <= 2147483647;
+    const customer = await prisma.customer.findFirst({
+      where: {
+        OR: [
+          ...(isId ? [{ id: Number(idOrPhone) }] : []),
+          { phone: idOrPhone }
+        ]
+      }
+    });
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found.' });
+    }
+
+    // Verify customer is currently an unregistered walk-in (starts with WALK- or non-standard phone)
+    if (!customer.phone.startsWith('WALK-') && customer.phone.length === 10) {
+      return res.status(400).json({ 
+        error: `This customer is already registered with a verified mobile number (${customer.phone}). Registered phone numbers are strictly immutable.` 
+      });
+    }
+
+    // Check if new phone is already registered to someone else
+    const existingWithPhone = await prisma.customer.findFirst({
+      where: {
+        AND: [
+          { NOT: { id: customer.id } },
+          { NOT: { phone: { startsWith: 'WALK-' } } },
+          { NOT: { phone: { startsWith: 'QUICK-' } } },
+          {
+            OR: [
+              { phone: cleanPhone },
+              { phone: { endsWith: cleanPhone } }
+            ]
+          }
+        ]
+      }
+    });
+
+    if (existingWithPhone) {
+      return res.status(409).json({
+        error: `Cannot register: Phone number ${cleanPhone} is already registered to ${existingWithPhone.name} (#CUST-${existingWithPhone.id}). Duplicate phone numbers are strictly prohibited.`,
+        existingCustomer: existingWithPhone
+      });
+    }
+
+    const cleanFirst = (firstName !== undefined && firstName.trim()) ? firstName.trim() : (customer.firstName || customer.name);
+    const cleanLast = (lastName !== undefined) ? lastName.trim() : (customer.lastName || '');
+    const newFullName = (cleanFirst + (cleanLast ? ' ' + cleanLast : '')).trim();
+
+    const updatedCustomer = await prisma.customer.update({
+      where: { id: customer.id },
+      data: {
+        phone: cleanPhone,
+        firstName: cleanFirst,
+        lastName: cleanLast,
+        name: newFullName
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Customer successfully registered as a permanent member with phone ${cleanPhone}!`,
+      customer: updatedCustomer
+    });
+  } catch (error: any) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        error: 'A customer with this phone number already exists in the database. Duplicate phone numbers are strictly prohibited.'
+      });
+    }
     res.status(500).json({ error: error.message });
   }
 });

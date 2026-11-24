@@ -243,3 +243,25 @@ model InventoryTransaction {
   @@index([type])
   @@index([createdAt])
 }
+
+model CustomerFeedback {
+  id               Int      @id @default(autoincrement())
+  customerName     String?
+  customerPhone    String?
+  customerEmail    String?
+  ratingOverall    Int      // 1-5
+  ratingTables     Int?     // 1-5
+  ratingVibe       Int?     // 1-5
+  ratingFood       Int?     // 1-5
+  ratingStaff      Int?     // 1-5
+  tags             String?  // Comma-separated badges/tags
+  sentiment        String   // "positive" | "negative" | "neutral"
+  generatedReview  String?  @db.Text
+  privateFeedback  String?  @db.Text // If negative rating, complaint message
+  postedToGoogle   Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  @@index([customerPhone])
+  @@index([sentiment])
+  @@index([createdAt])
+}

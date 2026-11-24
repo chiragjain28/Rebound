@@ -9,7 +9,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const pathname = usePathname();
   const { user, loading } = useAuth();
 
-  const isStandalonePage = pathname === '/login' || pathname === '/';
+  const isStandalonePage = pathname === '/login' || pathname === '/' || pathname?.startsWith('/review');
 
   if (isStandalonePage || loading || !user) {
     return <>{children}</>;

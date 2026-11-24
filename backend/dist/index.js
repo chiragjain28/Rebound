@@ -24,6 +24,7 @@ const udhar_routes_1 = __importDefault(require("./routes/udhar.routes"));
 const table_routes_1 = __importDefault(require("./routes/table.routes"));
 const customer_routes_1 = __importDefault(require("./routes/customer.routes"));
 const inventory_routes_1 = __importDefault(require("./routes/inventory.routes"));
+const review_routes_1 = __importDefault(require("./routes/review.routes"));
 const nightlyAutoClose_1 = require("./jobs/nightlyAutoClose");
 // Load .env.local first (dev overrides), then fallback to .env (prod defaults)
 dotenv_1.default.config({ path: '.env.local', override: true });
@@ -87,6 +88,7 @@ app.use('/api/udhar', udhar_routes_1.default);
 app.use('/api/tables', table_routes_1.default);
 app.use('/api/customers', customer_routes_1.default);
 app.use('/api/inventory', inventory_routes_1.default);
+app.use('/api/reviews', review_routes_1.default);
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'healthy', time: new Date() });

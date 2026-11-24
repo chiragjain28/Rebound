@@ -35,6 +35,81 @@ interface CartItem {
   quantity: number;
 }
 
+const EditableQuantityControl = ({
+  quantity,
+  onChange,
+}: {
+  quantity: number;
+  onChange: (qty: number) => void;
+}) => {
+  const [localVal, setLocalVal] = useState<string>(String(quantity));
+
+  useEffect(() => {
+    setLocalVal(String(quantity));
+  }, [quantity]);
+
+  const commitValue = (valStr: string) => {
+    const parsed = parseInt(valStr, 10);
+    if (isNaN(parsed) || parsed <= 0) {
+      onChange(0);
+    } else {
+      onChange(parsed);
+      setLocalVal(String(parsed));
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1 border border-slate-200 rounded-lg p-0.5 bg-slate-50 shadow-2xs">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(0, quantity - 1))}
+        className="p-1 hover:bg-slate-200 text-slate-700 rounded transition-colors cursor-pointer"
+        title="Decrease quantity"
+      >
+        <Minus className="h-3 w-3" />
+      </button>
+
+      <input
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={localVal}
+        onFocus={(e) => e.target.select()}
+        onChange={(e) => {
+          const val = e.target.value;
+          if (val === '' || /^\d+$/.test(val)) {
+            setLocalVal(val);
+            if (val !== '') {
+              const num = parseInt(val, 10);
+              if (!isNaN(num) && num > 0) {
+                onChange(num);
+              }
+            }
+          }
+        }}
+        onBlur={() => {
+          commitValue(localVal);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.currentTarget.blur();
+          }
+        }}
+        className="w-10 py-0.5 text-center text-xs font-mono font-black text-slate-900 bg-white border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+      />
+
+      <button
+        type="button"
+        onClick={() => onChange(quantity + 1)}
+        className="p-1 hover:bg-slate-200 text-slate-700 rounded transition-colors cursor-pointer"
+        title="Increase quantity"
+      >
+        <Plus className="h-3 w-3" />
+      </button>
+    </div>
+  );
+};
+
 export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({ onClose, onSuccess }) => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -132,6 +207,15 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({ onClose, onSucce
     });
   };
 
+  const setExactQuantity = (menuItemId: number, qty: number) => {
+    setCart(prev => {
+      if (qty <= 0) {
+        return prev.filter(i => i.menuItemId !== menuItemId);
+      }
+      return prev.map(i => i.menuItemId === menuItemId ? { ...i, quantity: qty } : i);
+    });
+  };
+
   const removeFromCart = (menuItemId: number) => {
     setCart(prev => prev.filter(i => i.menuItemId !== menuItemId));
   };
@@ -216,74 +300,83 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({ onClose, onSucce
         </div>
 
         {/* Completed Sale View */}
-        {completedSale ? (
-          <div className="p-8 flex flex-col items-center justify-center text-center space-y-6 overflow-y-auto">
-            <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
-              <CheckCircle className="w-9 h-9" />
-            </div>
-            <div>
-              <h3 className="text-2xl font-bold text-slate-900">Sale Completed Successfully!</h3>
-              <p className="text-sm text-slate-500 mt-1">
-                Ticket <span className="font-mono font-semibold text-slate-700">{completedSale.id}</span> • ₹{completedSale.totalBill} Paid via {paymentMethod}
-              </p>
-            </div>
+        {completedSale ? (() => {
+          const totalAmount = Number(completedSale.totalBill ?? completedSale.visitTotal ?? grandTotal) || 0;
+          const custName = completedSale.customerName || completedSale.customer?.name || customerName || 'Walk-in Guest';
+          const rawPhone = completedSale.customerPhone || completedSale.customer?.phone || customerPhone || '';
+          const hasPhone = Boolean(rawPhone && !rawPhone.startsWith('QUICK-') && !rawPhone.startsWith('WALK-') && rawPhone.replace(/\D/g, '').length >= 10);
 
-            {/* Receipt Summary Box */}
-            <div className="w-full max-w-md bg-slate-50 border border-slate-200 rounded-xl p-5 text-left space-y-3">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer</span>
-                <span className="text-xs font-bold text-slate-900">{completedSale.customerName} {completedSale.customerPhone ? `(${completedSale.customerPhone})` : ''}</span>
+          return (
+            <div className="p-8 flex flex-col items-center justify-center text-center space-y-6 overflow-y-auto">
+              <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                <CheckCircle className="w-9 h-9" />
               </div>
-              <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                {completedSale.orders?.map((o: any, idx: number) => (
-                  <div key={idx} className="flex justify-between text-xs text-slate-700">
-                    <span>{o.menuItem?.name || 'Item'} × {o.quantity}</span>
-                    <span className="font-semibold">₹{(o.price * o.quantity).toFixed(2)}</span>
-                  </div>
-                ))}
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 font-display">Sale Completed Successfully!</h3>
+                <p className="text-sm text-slate-500 mt-1 font-mono">
+                  Ticket <span className="font-semibold text-slate-700">{completedSale.id}</span> • ₹{totalAmount.toFixed(2)} Paid via {paymentMethod}
+                </p>
               </div>
-              <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-bold text-slate-900">
-                <span>Total Collected</span>
-                <span className="text-emerald-600">₹{completedSale.totalBill.toFixed(2)}</span>
-              </div>
-            </div>
 
-            {/* Action buttons */}
-            <div className="flex flex-wrap gap-3 justify-center">
-              {completedSale.customerPhone && (
+              {/* Receipt Summary Box */}
+              <div className="w-full max-w-md bg-slate-50 border border-slate-200 rounded-xl p-5 text-left space-y-3 font-mono">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider font-sans">Customer</span>
+                  <span className="text-xs font-bold text-slate-900 font-sans">
+                    {custName} {hasPhone ? `(${rawPhone})` : ''}
+                  </span>
+                </div>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto font-sans">
+                  {completedSale.orders?.map((o: any, idx: number) => (
+                    <div key={idx} className="flex justify-between text-xs text-slate-700">
+                      <span>{o.menuItem?.name || 'Item'} × {o.quantity}</span>
+                      <span className="font-semibold font-mono">₹{((o.price || 0) * (o.quantity || 1)).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-bold text-slate-900">
+                  <span>Total Collected</span>
+                  <span className="text-emerald-600">₹{totalAmount.toFixed(2)}</span>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-3 justify-center">
+                {hasPhone && (
+                  <button
+                    onClick={handleSendWhatsApp}
+                    disabled={sendingWhatsapp || whatsappSent}
+                    className={`px-5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${
+                      whatsappSent
+                        ? 'bg-emerald-600 text-white cursor-default'
+                        : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm'
+                    }`}
+                  >
+                    {sendingWhatsapp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    {whatsappSent ? 'Receipt Sent via WhatsApp' : `Send WhatsApp to ${rawPhone}`}
+                  </button>
+                )}
                 <button
-                  onClick={handleSendWhatsApp}
-                  disabled={sendingWhatsapp || whatsappSent}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all ${
-                    whatsappSent
-                      ? 'bg-emerald-600 text-white cursor-default'
-                      : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm'
-                  }`}
+                  onClick={() => {
+                    setCompletedSale(null);
+                    setCart([]);
+                    setCustomerName('');
+                    setCustomerPhone('');
+                  }}
+                  className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white shadow-sm cursor-pointer"
                 >
-                  {sendingWhatsapp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {whatsappSent ? 'Receipt Sent via WhatsApp' : `Send WhatsApp to ${completedSale.customerPhone}`}
+                  + Start Another Sale
                 </button>
-              )}
-              <button
-                onClick={() => {
-                  setCompletedSale(null);
-                  setCart([]);
-                  setCustomerName('');
-                  setCustomerPhone('');
-                }}
-                className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white shadow-sm"
-              >
-                + Start Another Sale
-              </button>
-              <button
-                onClick={onClose}
-                className="px-5 py-2.5 rounded-xl text-xs font-semibold border border-slate-200 text-slate-700 hover:bg-slate-100"
-              >
-                Done / Close
-              </button>
+                <button
+                  onClick={onClose}
+                  className="px-5 py-2.5 rounded-xl text-xs font-semibold border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                >
+                  Done / Close
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
+          );
+        })() : (
           /* Normal POS View */
           <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 min-h-0 overflow-hidden">
             
@@ -453,21 +546,10 @@ export const QuickSaleModal: React.FC<QuickSaleModalProps> = ({ onClose, onSucce
                           <p className="text-[11px] text-slate-400">₹{item.price} each</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50">
-                            <button
-                              onClick={() => updateQuantity(item.menuItemId, -1)}
-                              className="px-2 py-1 text-slate-600 hover:bg-slate-200 rounded-l-lg"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="px-2 font-bold text-slate-800 text-xs">{item.quantity}</span>
-                            <button
-                              onClick={() => updateQuantity(item.menuItemId, 1)}
-                              className="px-2 py-1 text-slate-600 hover:bg-slate-200 rounded-r-lg"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
+                          <EditableQuantityControl
+                            quantity={item.quantity}
+                            onChange={(qty) => setExactQuantity(item.menuItemId, qty)}
+                          />
                           <span className="font-extrabold text-slate-900 w-12 text-right">
                             ₹{(item.price * item.quantity).toFixed(0)}
                           </span>

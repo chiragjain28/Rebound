@@ -41,7 +41,7 @@ router.get('/', auth_1.authenticateToken, async (req, res) => {
 router.post('/:id/assign', auth_1.authenticateToken, async (req, res) => {
     try {
         const tableId = parseInt(req.params.id);
-        const { customerId, customerName, customerPhone } = req.body;
+        const { customerId, customerName, customerPhone, playerCount } = req.body;
         const staffUsername = req.user?.username || 'chirag';
         // 1. Verify table
         const table = await index_1.prisma.table.findUnique({
@@ -128,6 +128,9 @@ router.post('/:id/assign', auth_1.authenticateToken, async (req, res) => {
                 data: { totalVisits: { increment: 1 } }
             });
         }
+        const parsedPlayerCount = table.gameType === 'PS4'
+            ? Math.max(1, Math.min(4, parseInt(playerCount) || 1))
+            : 1;
         // 4. Create table play record and mark table occupied
         const [tablePlay, updatedTable] = await index_1.prisma.$transaction([
             index_1.prisma.tablePlay.create({
@@ -135,6 +138,7 @@ router.post('/:id/assign', auth_1.authenticateToken, async (req, res) => {
                     visitId: visit.id,
                     tableId: table.id,
                     gameType: table.gameType,
+                    playerCount: parsedPlayerCount,
                     startTime: now,
                     createdBy: staffUsername
                 },

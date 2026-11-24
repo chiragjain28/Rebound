@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const index_1 = require("../index");
 const auth_1 = require("../middleware/auth");
+const pricing_1 = require("../utils/pricing");
 const router = (0, express_1.Router)();
 router.get('/', auth_1.authenticateToken, async (req, res) => {
     try {
@@ -62,13 +63,14 @@ router.get('/', auth_1.authenticateToken, async (req, res) => {
             const hours = Math.floor(elapsedMinutes / 60);
             const mins = elapsedMinutes % 60;
             const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-            const rate = tp.table?.ratePerHour || (tp.table?.gameType === 'MidSnooker' ? 220 : 160);
+            const rate = (0, pricing_1.getPlayHourlyRate)(tp);
             const runningCost = Math.round((elapsedMinutes / 60) * rate * 100) / 100;
             return {
                 id: tp.id,
                 visitId: tp.visitId,
                 tableId: tp.tableId,
                 gameType: tp.gameType,
+                playerCount: tp.playerCount || 1,
                 stationName: tp.table?.name || (tp.table ? `${tp.table.gameType === 'MidSnooker' ? 'Mid Snooker' : tp.table.gameType} Table ${tp.table.number}` : (tp.gameType === 'PS4' ? 'PS4 Station' : tp.gameType === 'MidSnooker' ? 'Mid Snooker' : tp.gameType)),
                 tableNumber: tp.table?.number,
                 startTime: tp.startTime,
@@ -347,7 +349,7 @@ router.get('/analytics', auth_1.authenticateToken, async (req, res) => {
                 const hours = getPlayDurationHours(tp.startTime, tp.endTime);
                 day.tableHours += hours;
                 const norm = normalizeGameType(tp.gameType || tp.table?.gameType);
-                const rate = tp.table?.ratePerHour || (norm === 'MidSnooker' ? 220 : norm === 'PS4' ? 80 : 160);
+                const rate = (0, pricing_1.getPlayHourlyRate)(tp);
                 const playCost = tp.cost > 0 ? tp.cost : (hours * rate);
                 if (norm === 'Pool')
                     day.poolRev += playCost;
